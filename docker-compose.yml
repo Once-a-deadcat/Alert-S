@@ -1,0 +1,8 @@
+# docker-compose.yml
+
+version: '3'
+services:
+  switchbot:
+    build: .
+    env_file:
+      - .env
