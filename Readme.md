@@ -12,11 +12,13 @@ You can send an alert to the Switchbot owner set in this environment.
 The user should describe the urgency level and details.
 
 **Options**
+
 ・urgency level: red || yellow || blue
 
 ・task details: About task description.
 
 **priority rule**
+
 ・red >> yellow >> blue
 
 ・Registered early
