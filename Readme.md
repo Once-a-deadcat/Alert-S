@@ -35,6 +35,7 @@ They are grouped by urgency level and displayed in the order in which they were 
 ```bash
 API_KEY=""
 CLIENT_SECRET=""
+DISCORD_TOKEN=""
 ```
 
 If you want to run the script, do the following Run.
