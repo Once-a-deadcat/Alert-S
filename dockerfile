@@ -18,5 +18,8 @@ RUN pipenv install --system --deploy
 # スクリプトとその他のファイルをコピー
 COPY . .
 
+# PYTHONPATHにモジュールのパスを追加
+ENV PYTHONPATH="/app:${PYTHONPATH}"
+
 # スクリプトを実行
-CMD [ "python", "./SwitchbotFunc.py" ]
+CMD [ "python", "./discord_bot/example.py" ]
