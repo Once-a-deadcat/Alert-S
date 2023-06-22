@@ -33,7 +33,7 @@ logger.addHandler(handler)
 
 # インテントの生成
 intents = discord.Intents.default()
-# intents.message_content = True
+intents.message_content = True
 
 # クライアントの生成
 client = discord.Client(intents=intents, command_prefix="/")
