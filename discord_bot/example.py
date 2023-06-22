@@ -2,6 +2,18 @@ import discord
 import os
 import json
 from switchbot.SwitchbotFunc import get_device_list
+from lib.logger import AzureBlobHandler
+import logging
+
+# Configure logger settings
+# CONNECTION_STRING = os.environ["CONNECTION_STRING"]
+# CONTAINER_NAME = os.environ["CONTAINER_NAME"]
+# logger = logging.getLogger(__name__)
+# logger.setLevel(logging.INFO)
+# formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# handler = AzureBlobHandler(connection_string=CONNECTION_STRING,container_name=CONTAINER_NAME, blob_name_prefix='log')
+# handler.setFormatter(formatter)
+# logger.addHandler(handler)
 
 # インテントの生成
 intents = discord.Intents.default()
