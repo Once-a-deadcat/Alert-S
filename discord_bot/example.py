@@ -6,14 +6,14 @@ from lib.logger import AzureBlobHandler
 import logging
 
 # Configure logger settings
-# CONNECTION_STRING = os.environ["CONNECTION_STRING"]
-# CONTAINER_NAME = os.environ["CONTAINER_NAME"]
-# logger = logging.getLogger(__name__)
-# logger.setLevel(logging.INFO)
-# formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-# handler = AzureBlobHandler(connection_string=CONNECTION_STRING,container_name=CONTAINER_NAME, blob_name_prefix='log')
-# handler.setFormatter(formatter)
-# logger.addHandler(handler)
+CONNECTION_STRING = os.environ["CONNECTION_STRING"]
+CONTAINER_NAME = os.environ["CONTAINER_NAME"]
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler = AzureBlobHandler(connection_string=CONNECTION_STRING,container_name=CONTAINER_NAME, blob_name_prefix='log')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 # インテントの生成
 intents = discord.Intents.default()
@@ -45,11 +45,14 @@ async def on_message(message):
 
     # メッセージが"$hello"で始まっていたら"Hello!"と応答
     if message.content.startswith('$hello'):
+        logger.info("Hello! command received")
         await message.channel.send('Hello!')
 
     if message.content.startswith('$list'):
         device_list = await get_device_list()
         formatted_list = format_device_list(device_list)
+        logger.info(f"list command received")
+        logger.info(f"device list: {formatted_list}")
         await message.channel.send(formatted_list)
     
 # クライアントの実行
