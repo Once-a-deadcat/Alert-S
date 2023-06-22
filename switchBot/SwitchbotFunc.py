@@ -1,14 +1,18 @@
 import requests
 import json
-from switchbot.SwitchbotAuth import make_sign, make_request_header # switchbot-auth.pyから関数をインポート
+from switchBot.SwitchbotAuth import (
+    make_sign,
+    make_request_header,
+)  # switchbot-auth.pyから関数をインポート
 import os
 
-base_url = 'https://api.switch-bot.com'
+base_url = "https://api.switch-bot.com"
 
-async def get_device_list(deviceListJson='deviceList.json'):
+
+async def get_device_list(deviceListJson="deviceList.json"):
     # tokenとsecretを貼り付ける
-    token = os.environ['API_KEY']
-    secret = os.environ['CLIENT_SECRET']
+    token = os.environ["API_KEY"]
+    secret = os.environ["CLIENT_SECRET"]
 
     devices_url = base_url + "/v1.1/devices"
 
@@ -23,9 +27,9 @@ async def get_device_list(deviceListJson='deviceList.json'):
         deviceList = json.loads(res.text)
         return deviceList
     except requests.exceptions.RequestException as e:
-        print('response error:',e)
+        print("response error:", e)
         return None
+
 
 if __name__ == "__main__":
     get_device_list()
-    

@@ -1,9 +1,21 @@
 import discord
 import os
 import json
-from switchbot.SwitchbotFunc import get_device_list
+from switchBot.SwitchbotFunc import get_device_list
 from lib.logger import AzureBlobHandler
 import logging
+from tableClient.taskClient import get_tasks, create_tasks
+
+from discord import (
+    app_commands,
+    Interaction,
+    SelectOption,
+    TextInput,
+    User,
+)
+from discord.ui import Select, Button, View
+from discord.ext import commands
+from typing import List
 
 # Configure logger settings
 CONNECTION_STRING = os.environ["CONNECTION_STRING"]
@@ -21,10 +33,18 @@ logger.addHandler(handler)
 
 # インテントの生成
 intents = discord.Intents.default()
-intents.message_content = True
+# intents.message_content = True
 
 # クライアントの生成
-client = discord.Client(intents=intents)
+client = discord.Client(intents=intents, command_prefix="/")
+tree = app_commands.CommandTree(client)
+
+
+# discordと接続した時に呼ばれる
+@client.event
+async def on_ready():
+    print(f"We have logged in as {client.user}")
+    await tree.sync()  # スラッシュコマンドを同期
 
 
 def format_device_list(device_data):
@@ -37,10 +57,19 @@ def format_device_list(device_data):
     return "\n".join(formatted_list)
 
 
-# discordと接続した時に呼ばれる
-@client.event
-async def on_ready():
-    print(f"We have logged in as {client.user}")
+@tree.command(name="test", description="テストコマンドです。")
+async def test_command(interaction: discord.Interaction):
+    await interaction.response.send_message(
+        "てすと！", ephemeral=True
+    )  # ephemeral=True→「これらはあなただけに表示されています」
+
+
+# slash commandを受信した時に呼ばれる
+@tree.command(name="hello", description="あいさつを返してくれます")
+async def hello(interaction: discord.Interaction):
+    logger.info("Hello! command received")
+    reply_text = "Hello!"
+    await interaction.response.send_message(reply_text, ephemeral=True)
 
 
 # メッセージを受信した時に呼ばれる
@@ -61,6 +90,21 @@ async def on_message(message):
         logger.info(f"list command received")
         logger.info(f"device list: {formatted_list}")
         await message.channel.send(formatted_list)
+
+    if message.content.startswith("$get"):
+        tasks = await get_tasks()
+        logger.info(f"get command received")
+        logger.info(f"tasks: {tasks}")
+        await message.channel.send(tasks)
+
+    if message.content.startswith("$create"):
+        _, task_title, task_detail, task_status, task_color = message.content.split()
+        created_task = await create_tasks(
+            task_title, task_detail, task_status, task_color
+        )
+        logger.info(f"create command received")
+        logger.info(f"created task: {created_task}")
+        await message.channel.send(created_task)
 
 
 # クライアントの実行

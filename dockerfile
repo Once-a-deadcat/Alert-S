@@ -1,7 +1,7 @@
 # Dockerfile
 
 # Pythonイメージの指定
-FROM python:3.8
+FROM python:3.10
 
 # 作業ディレクトリを設定
 WORKDIR /app
@@ -22,4 +22,4 @@ COPY . .
 ENV PYTHONPATH="/app:${PYTHONPATH}"
 
 # スクリプトを実行
-CMD [ "python", "./discord_bot/example.py" ]
+CMD [ "python", "./discordBot/example.py" ]
