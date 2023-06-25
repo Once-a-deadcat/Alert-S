@@ -27,4 +27,6 @@ az container create \
     CLIENT_SECRET= \
     DISCORD_TOKEN= \
     CONNECTION_STRING= \
-    CONTAINER_NAME=
+    CONTAINER_NAME= \
+  --cpu 0.1 \
+  --memory 0.1

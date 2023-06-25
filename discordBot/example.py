@@ -67,9 +67,55 @@ async def test_command(interaction: discord.Interaction):
 # slash commandを受信した時に呼ばれる
 @tree.command(name="hello", description="あいさつを返してくれます")
 async def hello(interaction: discord.Interaction):
-    logger.info("Hello! command received")
+    logger.info("/hello command received")
     reply_text = "Hello!"
     await interaction.response.send_message(reply_text, ephemeral=True)
+
+
+# slash commandを受信した時に呼ばれる
+@tree.command(name="list", description="デバイスリストを返してくれます")
+async def hello(interaction: discord.Interaction):
+    logger.info("/list command received")
+
+    device_list = await get_device_list()
+    formatted_list = format_device_list(device_list)
+    logger.info(f"list command received")
+    logger.info(f"device list: {formatted_list}")
+    await interaction.response.send_message(formatted_list, ephemeral=False)
+
+
+# slash commandを受信した時に呼ばれる
+@tree.command(name="get", description="報告一覧を返してくれます")
+async def hello(interaction: discord.Interaction):
+    logger.info("/get command received")
+
+    tasks = await get_tasks()
+    await interaction.response.send_message(tasks, ephemeral=False)
+
+
+async def task_color_options(
+    interaction: discord.Interaction, current: str
+) -> List[app_commands.Choice[str]]:
+    data = []
+    colors = ["red", "yellow", "blue"]
+    for color_choice in colors:
+        if current.lower() in color_choice.lower():
+            data.append(app_commands.Choice(name=color_choice, value=color_choice))
+    return data
+
+
+@tree.command(name="create", description="報告を作成してくれます")
+@app_commands.autocomplete(
+    task_color=task_color_options,
+)
+async def hello(
+    interaction: discord.Interaction, task_title: str, task_detail: str, task_color: str
+):
+    task_status = "in progress"
+    created_task = await create_tasks(task_title, task_detail, task_status, task_color)
+    logger.info(f"create command received")
+    logger.info(f"created task: {created_task}")
+    await interaction.response.send_message(created_task, ephemeral=False)
 
 
 # メッセージを受信した時に呼ばれる
@@ -78,33 +124,6 @@ async def on_message(message):
     # 自分のメッセージを無効
     if message.author == client.user:
         return
-
-    # メッセージが"$hello"で始まっていたら"Hello!"と応答
-    if message.content.startswith("$hello"):
-        logger.info("Hello! command received")
-        await message.channel.send("Hello!")
-
-    if message.content.startswith("$list"):
-        device_list = await get_device_list()
-        formatted_list = format_device_list(device_list)
-        logger.info(f"list command received")
-        logger.info(f"device list: {formatted_list}")
-        await message.channel.send(formatted_list)
-
-    if message.content.startswith("$get"):
-        tasks = await get_tasks()
-        logger.info(f"get command received")
-        logger.info(f"tasks: {tasks}")
-        await message.channel.send(tasks)
-
-    if message.content.startswith("$create"):
-        _, task_title, task_detail, task_status, task_color = message.content.split()
-        created_task = await create_tasks(
-            task_title, task_detail, task_status, task_color
-        )
-        logger.info(f"create command received")
-        logger.info(f"created task: {created_task}")
-        await message.channel.send(created_task)
 
 
 # クライアントの実行
