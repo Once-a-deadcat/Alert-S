@@ -1,7 +1,8 @@
+import asyncio
 import discord
 import os
 import json
-from switchBot.SwitchbotFunc import get_device_list
+from switchBot.SwitchbotFunc import get_device_list, set_light_color
 from lib.logger import AzureBlobHandler
 import logging
 from tableClient.taskClient import get_tasks, create_tasks, update_tasks
@@ -12,8 +13,10 @@ from discord import (
     SelectOption,
     TextInput,
     User,
+    Member,
+    Embed,
 )
-from discord.ui import Select, Button, View
+from discord.ui import Select, Button, View, UserSelect
 from discord.ext import commands
 from typing import List
 
@@ -34,6 +37,8 @@ logger.addHandler(handler)
 # インテントの生成
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True
+intents = discord.Intents.all()
 
 # クライアントの生成
 client = discord.Client(intents=intents, command_prefix="/")
@@ -57,13 +62,6 @@ def format_device_list(device_data):
     return "\n".join(formatted_list)
 
 
-@tree.command(name="test", description="テストコマンドです。")
-async def test_command(interaction: discord.Interaction):
-    await interaction.response.send_message(
-        "てすと！", ephemeral=True
-    )  # ephemeral=True→「これらはあなただけに表示されています」
-
-
 # slash commandを受信した時に呼ばれる
 @tree.command(name="hello", description="あいさつを返してくれます")
 async def hello(interaction: discord.Interaction):
@@ -80,11 +78,10 @@ async def hello(interaction: discord.Interaction):
     device_list = await get_device_list()
     formatted_list = format_device_list(device_list)
     logger.info(f"list command received")
-    logger.info(f"device list: {formatted_list}")
     await interaction.response.send_message(formatted_list, ephemeral=False)
 
 
-@tree.command(name="get", description="報告一覧を返してくれます")
+@tree.command(name="get", description="Job一覧を返してくれます")
 async def hello(interaction: discord.Interaction):
     logger.info("/get command received")
 
@@ -122,17 +119,105 @@ async def hello(interaction: discord.Interaction):
     await interaction.response.send_message(markdown_text, ephemeral=False)
 
 
-@tree.command(name="get_user_tasks", description="指定したユーザーの報告一覧を返します")
-async def hello(
-    interaction: discord.Interaction,
-    target_user: discord.User = app_commands.UserOption(description="指定したいユーザー"),
-):
+@tree.command(name="get_member_tasks", description="Job一覧を返します(指定したユーザー)")
+@app_commands.autocomplete()
+async def hello(interaction: discord.Interaction, target_user: User):
     tasks = await get_tasks(target_user.id)  # assuming get_tasks accepts a user_id
     # Markdown text generation
-    markdown_text = f"### User: {target_user.name}\n"
+    markdown_text = f"### User: {target_user.name}\n"  # Grouping tasks by color
+    if len(tasks) == 0:
+        markdown_text += "No tasks found.\n"
+        await interaction.response.send_message(markdown_text, ephemeral=False)
+        return
+    tasks_by_color = dict()
     for task in tasks:
-        markdown_text += f'・TaskId:  {task["RowKey"]}  /  Title:  {task["TaskTitle"]}  /  Status:  {task["TaskStatus"]}\n'
-        markdown_text += f'\t Detail: {task["TaskDetail"]}\n'
+        color = task["TaskColor"].upper()  # Unify the color representation
+        if color not in tasks_by_color:
+            tasks_by_color[color] = []
+        tasks_by_color[color].append(task)
+
+    # Order of colors
+    color_order = ["RED", "YELLOW", "BLUE"]
+
+    # Generating markdown for each color in the specified order
+    for color in color_order:
+        if color in tasks_by_color:
+            tasks_in_color = tasks_by_color[color]
+            markdown_text += f"### Color:  {color}\n"
+            for task in tasks_in_color:
+                if task["TaskStatus"].upper() != "COMPLETED":
+                    markdown_text += f'・TaskId:  {task["RowKey"]}  /  Title:  {task["TaskTitle"]}  /  Status:  {task["TaskStatus"]}\n'
+                    markdown_text += f'\t Detail: {task["TaskDetail"]}\n'
+    await interaction.response.send_message(markdown_text, ephemeral=False)
+
+
+@tree.command(name="done", description="完了したJob一覧を返してくれます")
+async def hello(interaction: discord.Interaction):
+    logger.info("/done command received")
+
+    user_id = interaction.user.id
+    tasks = await get_tasks(user_id)
+
+    if len(tasks) == 0:
+        await interaction.response.send_message("No tasks found.", ephemeral=False)
+        return
+
+    # Markdown text generation
+    markdown_text = ""
+
+    # Grouping tasks by color
+    tasks_by_color = dict()
+    for task in tasks:
+        color = task["TaskColor"].upper()  # Unify the color representation
+        if color not in tasks_by_color:
+            tasks_by_color[color] = []
+        tasks_by_color[color].append(task)
+
+    # Order of colors
+    color_order = ["RED", "YELLOW", "BLUE"]
+
+    # Generating markdown for each color in the specified order
+    for color in color_order:
+        if color in tasks_by_color:
+            tasks_in_color = tasks_by_color[color]
+            markdown_text += f"### Color:  {color}\n"
+            for task in tasks_in_color:
+                if task["TaskStatus"].upper() == "COMPLETED":
+                    markdown_text += f'・TaskId:  {task["RowKey"]}  /  Title:  {task["TaskTitle"]}  /  Status:  {task["TaskStatus"]}\n'
+                    markdown_text += f'\t Detail: {task["TaskDetail"]}\n'
+
+    await interaction.response.send_message(markdown_text, ephemeral=False)
+
+
+@tree.command(name="done_member_tasks", description="完了したJob一覧を返します(指定したユーザー)")
+@app_commands.autocomplete()
+async def hello(interaction: discord.Interaction, target_user: User):
+    tasks = await get_tasks(target_user.id)  # assuming get_tasks accepts a user_id
+    # Markdown text generation
+    markdown_text = f"### User: {target_user.name}\n"  # Grouping tasks by color
+    if len(tasks) == 0:
+        markdown_text += "No tasks found.\n"
+        await interaction.response.send_message(markdown_text, ephemeral=False)
+        return
+    tasks_by_color = dict()
+    for task in tasks:
+        color = task["TaskColor"].upper()  # Unify the color representation
+        if color not in tasks_by_color:
+            tasks_by_color[color] = []
+        tasks_by_color[color].append(task)
+
+    # Order of colors
+    color_order = ["RED", "YELLOW", "BLUE"]
+
+    # Generating markdown for each color in the specified order
+    for color in color_order:
+        if color in tasks_by_color:
+            tasks_in_color = tasks_by_color[color]
+            markdown_text += f"### Color:  {color}\n"
+            for task in tasks_in_color:
+                if task["TaskStatus"].upper() == "COMPLETED":
+                    markdown_text += f'・TaskId:  {task["RowKey"]}  /  Title:  {task["TaskTitle"]}  /  Status:  {task["TaskStatus"]}\n'
+                    markdown_text += f'\t Detail: {task["TaskDetail"]}\n'
     await interaction.response.send_message(markdown_text, ephemeral=False)
 
 
@@ -147,7 +232,7 @@ async def task_color_options(
     return data
 
 
-@tree.command(name="create", description="報告を作成してくれます")
+@tree.command(name="create", description="Jobを作成してくれます")
 @app_commands.autocomplete(
     task_color=task_color_options,
 )
@@ -164,6 +249,7 @@ async def hello(
     markdown_text = f"### Color:  {created_task['TaskColor']}\n"
     markdown_text += f'・TaskId:  {created_task["RowKey"]}  /  Title:  {created_task["TaskTitle"]}  /  Status:  {created_task["TaskStatus"]}\n'
     markdown_text += f'\t Detail: {created_task["TaskDetail"]}\n'
+    markdown_text += f"### Jobが作成されました.\n"
     await interaction.response.send_message(markdown_text, ephemeral=False)
 
 
@@ -187,11 +273,11 @@ async def task_id_options(
     for task in tasks:
         if current.lower() in task["RowKey"].lower():
             choice = f'・TaskId:  {task["RowKey"]}  /  Title:  {task["TaskTitle"]}  /  Status:  {task["TaskStatus"]}\n'
-            data.append(app_commands.Choice(name=task["RowKey"], value=choice))
+            data.append(app_commands.Choice(name=choice, value=task["RowKey"]))
     return data
 
 
-@tree.command(name="update", description="報告のステータスを更新してくれます")
+@tree.command(name="update", description="Jobのステータスを更新してくれます")
 @app_commands.autocomplete(task_id=task_id_options, task_status=task_status_options)
 async def hello(interaction: discord.Interaction, task_id: str, task_status: str):
     user_id = interaction.user.id
@@ -201,7 +287,27 @@ async def hello(interaction: discord.Interaction, task_id: str, task_status: str
     markdown_text = f"### Color:  {created_task['TaskColor']}\n"
     markdown_text += f'・TaskId:  {created_task["RowKey"]}  /  Title:  {created_task["TaskTitle"]}  /  Status:  {created_task["TaskStatus"]}\n'
     markdown_text += f'\t Detail: {created_task["TaskDetail"]}\n'
+    markdown_text += f"### Jobの状態が更新されました.\n"
     await interaction.response.send_message(markdown_text, ephemeral=False)
+
+
+@tree.command(name="test", description="テストコマンドです。")
+async def test_command(interaction: discord.Interaction):
+    await interaction.response.send_message(
+        "てすと！", ephemeral=True
+    )  # ephemeral=True→「これらはあなただけに表示されています」
+
+
+@tree.command(name="color", description="指定の色に光らせます")
+@app_commands.autocomplete(
+    color=task_color_options,
+)
+async def hello(interaction: discord.Interaction, color: str):
+    await interaction.response.defer()
+    logger.info("Setting light color to red...")
+    await set_light_color(color)
+    logger.info("Light color set to red")
+    await interaction.followup.send(f"{color} に光らせました!!")
 
 
 # メッセージを受信した時に呼ばれる

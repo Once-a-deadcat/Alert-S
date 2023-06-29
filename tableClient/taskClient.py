@@ -31,7 +31,7 @@ async def get_tasks(user_id):
 
 async def create_tasks(user_id, task_title, task_detail, task_status, task_color):
     # 新しいテーブルを作成する
-    table_name = "tasks"
+    table_name = f"tasks"
 
     try:
         table_service_client.create_table(table_name)
@@ -57,7 +57,7 @@ async def create_tasks(user_id, task_title, task_detail, task_status, task_color
 
     # エンティティを取得する
     retrieved_entity = table_client.get_entity(
-        partition_key="tasks", row_key=f"{taskId}"
+        partition_key=f"tasks-{user_id}", row_key=f"{taskId}"
     )
     print("Retrieved Entity:")
     print(retrieved_entity)
@@ -72,26 +72,20 @@ async def update_tasks(user_id, task_id, task_status):
     # テーブルクライアントの生成
     table_client = table_service_client.get_table_client(table_name)
 
-    try:
-        # エンティティの取得
-        entity = table_client.get_entity(
-            partition_key=f"tasks-{user_id}", row_key=f"{task_id}"
-        )
+    # エンティティの取得
+    entity = table_client.get_entity(partition_key=f"tasks-{user_id}", row_key=task_id)
 
-        # ステータスの更新
-        entity["TaskStatus"] = task_status
+    # ステータスの更新
+    entity["TaskStatus"] = task_status
 
-        # エンティティの更新
-        table_client.update_entity(entity, mode=UpdateMode.REPLACE)
+    # エンティティの更新
+    table_client.update_entity(entity, mode=UpdateMode.REPLACE)
 
-        print(f"Task '{task_id}' updated successfully.")
-    except ResourceNotFoundError:
-        print(f"Task '{task_id}' not found.")
-        return None
+    print(f"Task '{task_id}' updated successfully.")
 
     # 更新されたエンティティの取得
     updated_entity = table_client.get_entity(
-        partition_key="tasks", row_key=f"{task_id}"
+        partition_key=f"tasks-{user_id}", row_key=task_id
     )
 
     return updated_entity
