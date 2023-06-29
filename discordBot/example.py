@@ -84,20 +84,48 @@ async def hello(interaction: discord.Interaction):
     await interaction.response.send_message(formatted_list, ephemeral=False)
 
 
-# slash commandを受信した時に呼ばれる
 @tree.command(name="get", description="報告一覧を返してくれます")
 async def hello(interaction: discord.Interaction):
     logger.info("/get command received")
 
     tasks = await get_tasks()
-    await interaction.response.send_message(tasks, ephemeral=False)
+    
+    if len(tasks) == 0:
+        await interaction.response.send_message("No tasks found.", ephemeral=False)
+        return
+
+    # Markdown text generation
+    markdown_text = ""
+
+    # Grouping tasks by color
+    tasks_by_color = dict()
+    for task in tasks:
+        color = task['TaskColor'].upper()  # Unify the color representation
+        if color not in tasks_by_color:
+            tasks_by_color[color] = []
+        tasks_by_color[color].append(task)
+
+    # Order of colors
+    color_order = ['RED', 'YELLOW', 'BLUE']
+
+    # Generating markdown for each color in the specified order
+    for color in color_order:
+        if color in tasks_by_color:
+            tasks_in_color = tasks_by_color[color]
+            markdown_text += f"### Color:  {color}\n"
+            for task in tasks_in_color:
+                if task["TaskStatus"].upper() != "COMPLETED":
+                    markdown_text += f'・TaskId:  {task["RowKey"]}  /  Title:  {task["TaskTitle"]}  /  Status:  {task["TaskStatus"]}\n'
+                    markdown_text += f'\t Detail: {task["TaskDetail"]}\n'
+
+    await interaction.response.send_message(markdown_text, ephemeral=False)
 
 
 async def task_color_options(
     interaction: discord.Interaction, current: str
 ) -> List[app_commands.Choice[str]]:
     data = []
-    colors = ["red", "yellow", "blue"]
+    colors = ["RED", "YELLOW", "BLUE"]
     for color_choice in colors:
         if current.lower() in color_choice.lower():
             data.append(app_commands.Choice(name=color_choice, value=color_choice))
@@ -111,11 +139,14 @@ async def task_color_options(
 async def hello(
     interaction: discord.Interaction, task_title: str, task_detail: str, task_color: str
 ):
-    task_status = "in progress"
+    task_status = "NOT TOUCHED"
     created_task = await create_tasks(task_title, task_detail, task_status, task_color)
     logger.info(f"create command received")
     logger.info(f"created task: {created_task}")
-    await interaction.response.send_message(created_task, ephemeral=False)
+    markdown_text = f"### Color:  {created_task['TaskColor']}\n"
+    markdown_text += f'・TaskId:  {created_task["RowKey"]}  /  Title:  {created_task["TaskTitle"]}  /  Status:  {created_task["TaskStatus"]}\n'
+    markdown_text += f'\t Detail: {created_task["TaskDetail"]}\n'
+    await interaction.response.send_message(markdown_text, ephemeral=False)
 
 
 # メッセージを受信した時に呼ばれる
