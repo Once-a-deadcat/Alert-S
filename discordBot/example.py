@@ -4,7 +4,7 @@ import json
 from switchBot.SwitchbotFunc import get_device_list
 from lib.logger import AzureBlobHandler
 import logging
-from tableClient.taskClient import get_tasks, create_tasks
+from tableClient.taskClient import get_tasks, create_tasks, update_tasks
 
 from discord import (
     app_commands,
@@ -88,8 +88,9 @@ async def hello(interaction: discord.Interaction):
 async def hello(interaction: discord.Interaction):
     logger.info("/get command received")
 
-    tasks = await get_tasks()
-    
+    user_id = interaction.user.id
+    tasks = await get_tasks(user_id)
+
     if len(tasks) == 0:
         await interaction.response.send_message("No tasks found.", ephemeral=False)
         return
@@ -100,13 +101,13 @@ async def hello(interaction: discord.Interaction):
     # Grouping tasks by color
     tasks_by_color = dict()
     for task in tasks:
-        color = task['TaskColor'].upper()  # Unify the color representation
+        color = task["TaskColor"].upper()  # Unify the color representation
         if color not in tasks_by_color:
             tasks_by_color[color] = []
         tasks_by_color[color].append(task)
 
     # Order of colors
-    color_order = ['RED', 'YELLOW', 'BLUE']
+    color_order = ["RED", "YELLOW", "BLUE"]
 
     # Generating markdown for each color in the specified order
     for color in color_order:
@@ -118,6 +119,20 @@ async def hello(interaction: discord.Interaction):
                     markdown_text += f'・TaskId:  {task["RowKey"]}  /  Title:  {task["TaskTitle"]}  /  Status:  {task["TaskStatus"]}\n'
                     markdown_text += f'\t Detail: {task["TaskDetail"]}\n'
 
+    await interaction.response.send_message(markdown_text, ephemeral=False)
+
+
+@tree.command(name="get_user_tasks", description="指定したユーザーの報告一覧を返します")
+async def hello(
+    interaction: discord.Interaction,
+    target_user: discord.User = app_commands.UserOption(description="指定したいユーザー"),
+):
+    tasks = await get_tasks(target_user.id)  # assuming get_tasks accepts a user_id
+    # Markdown text generation
+    markdown_text = f"### User: {target_user.name}\n"
+    for task in tasks:
+        markdown_text += f'・TaskId:  {task["RowKey"]}  /  Title:  {task["TaskTitle"]}  /  Status:  {task["TaskStatus"]}\n'
+        markdown_text += f'\t Detail: {task["TaskDetail"]}\n'
     await interaction.response.send_message(markdown_text, ephemeral=False)
 
 
@@ -139,10 +154,50 @@ async def task_color_options(
 async def hello(
     interaction: discord.Interaction, task_title: str, task_detail: str, task_color: str
 ):
+    user_id = interaction.user.id
     task_status = "NOT TOUCHED"
-    created_task = await create_tasks(task_title, task_detail, task_status, task_color)
+    created_task = await create_tasks(
+        user_id, task_title, task_detail, task_status, task_color
+    )
     logger.info(f"create command received")
     logger.info(f"created task: {created_task}")
+    markdown_text = f"### Color:  {created_task['TaskColor']}\n"
+    markdown_text += f'・TaskId:  {created_task["RowKey"]}  /  Title:  {created_task["TaskTitle"]}  /  Status:  {created_task["TaskStatus"]}\n'
+    markdown_text += f'\t Detail: {created_task["TaskDetail"]}\n'
+    await interaction.response.send_message(markdown_text, ephemeral=False)
+
+
+async def task_status_options(
+    interaction: discord.Interaction, current: str
+) -> List[app_commands.Choice[str]]:
+    data = []
+    colors = ["IN PROGRESS", "COMPLETED", "NOT TOUCHED"]
+    for color_choice in colors:
+        if current.lower() in color_choice.lower():
+            data.append(app_commands.Choice(name=color_choice, value=color_choice))
+    return data
+
+
+async def task_id_options(
+    interaction: discord.Interaction, current: str
+) -> List[app_commands.Choice[str]]:
+    data = []
+    user_id = interaction.user.id
+    tasks = await get_tasks(user_id)
+    for task in tasks:
+        if current.lower() in task["RowKey"].lower():
+            choice = f'・TaskId:  {task["RowKey"]}  /  Title:  {task["TaskTitle"]}  /  Status:  {task["TaskStatus"]}\n'
+            data.append(app_commands.Choice(name=task["RowKey"], value=choice))
+    return data
+
+
+@tree.command(name="update", description="報告のステータスを更新してくれます")
+@app_commands.autocomplete(task_id=task_id_options, task_status=task_status_options)
+async def hello(interaction: discord.Interaction, task_id: str, task_status: str):
+    user_id = interaction.user.id
+    created_task = await update_tasks(user_id, task_id, task_status)
+    logger.info(f"update_tasks command received")
+    logger.info(f"update_tasks task: {created_task}")
     markdown_text = f"### Color:  {created_task['TaskColor']}\n"
     markdown_text += f'・TaskId:  {created_task["RowKey"]}  /  Title:  {created_task["TaskTitle"]}  /  Status:  {created_task["TaskStatus"]}\n'
     markdown_text += f'\t Detail: {created_task["TaskDetail"]}\n'
