@@ -43,7 +43,10 @@ async def create_state(user_id, light_color):
     except ResourceExistsError:
         print(f"Table '{table_name}' already exists.")
 
-    state = await get_state(user_id=user_id)
+    try:
+        state = await get_state(user_id=user_id)
+    except ResourceNotFoundError:
+        pass
 
     if len(state) == 0:
         # エンティティを追加する
@@ -77,7 +80,7 @@ async def update_state(user_id, light_color):
     table_client = table_service_client.get_table_client(table_name)
 
     # エンティティの取得
-    entity = table_client.get_entity(partition_key=f"state", row_key=user_id)
+    entity = table_client.get_entity(partition_key=f"state", row_key=f"{user_id}")
 
     # ステータスの更新
     entity["LightState"] = light_color
@@ -88,6 +91,8 @@ async def update_state(user_id, light_color):
     print(f"state '{user_id}' updated successfully.")
 
     # 更新されたエンティティの取得
-    updated_entity = table_client.get_entity(partition_key=f"state", row_key=user_id)
+    updated_entity = table_client.get_entity(
+        partition_key=f"state", row_key=f"{user_id}"
+    )
 
     return updated_entity

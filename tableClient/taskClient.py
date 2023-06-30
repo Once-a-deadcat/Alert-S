@@ -18,6 +18,7 @@ async def get_tasks(user_id):
         print(f"Table '{table_name}' created successfully.")
     except ResourceExistsError:
         print(f"Table '{table_name}' already exists.")
+        pass
 
     table_client = table_service_client.get_table_client(table_name)
     # エンティティを取得する
@@ -73,7 +74,13 @@ async def update_tasks(user_id, task_id, task_status):
     table_client = table_service_client.get_table_client(table_name)
 
     # エンティティの取得
-    entity = table_client.get_entity(partition_key=f"tasks-{user_id}", row_key=task_id)
+    try:
+        entity = table_client.get_entity(
+            partition_key=f"tasks-{user_id}", row_key=task_id
+        )
+    except ResourceNotFoundError:
+        print(f"Task '{task_id}' not found.")
+        return
 
     # ステータスの更新
     entity["TaskStatus"] = task_status
@@ -98,9 +105,13 @@ async def delete_tasks(user_id, task_id):
     # テーブルクライアントの生成
     table_client = table_service_client.get_table_client(table_name)
 
-    delete_task = table_client.get_entity(
-        partition_key=f"tasks-{user_id}", row_key=task_id
-    )
+    try:
+        delete_task = table_client.get_entity(
+            partition_key=f"tasks-{user_id}", row_key=task_id
+        )
+    except ResourceNotFoundError:
+        print(f"Task '{task_id}' not found.")
+        return
 
     # エンティティの削除
     table_client.delete_entity(partition_key=f"tasks-{user_id}", row_key=task_id)

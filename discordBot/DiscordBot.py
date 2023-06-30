@@ -89,23 +89,23 @@ async def update_color(user_id: str):
 
     if len(tasks) > 0:
         for task in tasks:
-            if task["TaskState"] == "RED":
+            if task["TaskColor"] == "RED":
                 light_color = "RED"
-                await set_light_color(user_id, light_color)
-                await update_state(user_id, light_color)
+                await set_light_color(light_color)
+                # await update_state(user_id, light_color)
                 break  # As RED is the highest priority, we can break the loop when we find it.
-            elif task["TaskState"] == "YELLOW":
+            elif task["TaskColor"] == "YELLOW":
                 light_color = (
                     "YELLOW"  # If we later find a RED task, this will be overwritten.
                 )
-            elif task["TaskState"] == "BLUE" and light_color == "NONE":
+            elif task["TaskColor"] == "BLUE" and light_color == "NONE":
                 light_color = (
                     "BLUE"  # BLUE is only set if no RED or YELLOW tasks are found.
                 )
 
     # Update the color only once after checking all tasks
-    await set_light_color(user_id, light_color)
-    await update_state(user_id, light_color)
+    await set_light_color(light_color)
+    # await update_state(user_id, light_color)
 
     return light_color
 
@@ -275,6 +275,7 @@ async def hello(
         user_id, task_title, task_detail, task_status, task_color
     )
     await update_color(user_id)
+    # await create_state(user_id, created_task["TaskColor"])
     logger.info(f"create command received")
     logger.info(f"created task: {created_task}")
     markdown_text = f"### Color:  {created_task['TaskColor']}\n"
@@ -314,7 +315,10 @@ async def hello(interaction: discord.Interaction, task_id: str, task_status: str
     await interaction.response.defer()
     user_id = interaction.user.id
     created_task = await update_tasks(user_id, task_id, task_status)
-    await update_color(user_id)
+    if created_task is None:
+        await interaction.followup.send("Task not found.", ephemeral=False)
+        return
+    color = await update_color(user_id)
     logger.info(f"update_tasks command received")
     logger.info(f"update_tasks task: {created_task}")
     markdown_text = f"### Color:  {created_task['TaskColor']}\n"
@@ -330,6 +334,9 @@ async def hello(interaction: discord.Interaction, task_id: str):
     await interaction.response.defer()
     user_id = interaction.user.id
     deleted_task = await delete_tasks(user_id, task_id)
+    if deleted_task is None:
+        await interaction.followup.send("Task not found.", ephemeral=False)
+        return
     await update_color(user_id)
     logger.info(f"delete_tasks command received")
     logger.info(f"delete_tasks task: {deleted_task}")
