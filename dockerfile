@@ -22,4 +22,4 @@ COPY . .
 ENV PYTHONPATH="/app:${PYTHONPATH}"
 
 # スクリプトを実行
-CMD [ "python", "./discordBot/example.py" ]
+CMD [ "python", "./discordBot/DiscordBot.py" ]

@@ -48,6 +48,21 @@ async def set_light_color(color: str):
     else:
         raise ValueError(f"Unsupported color: {color}")
 
+    if color.lower() == "none":
+        command1 = {
+            "command": "turnOff",
+            "parameter": "default",
+            "commandType": "command",
+        }
+        try:
+            res = requests.post(device_url, headers=headers, json=command1)
+            res.raise_for_status()
+            print(res.text)
+            return
+        except requests.exceptions.RequestException as e:
+            print(f"Error sending command: {e}")
+            return
+
     # ライトをオンにする
     command1 = {"command": "turnOn", "parameter": "default", "commandType": "command"}
     try:
