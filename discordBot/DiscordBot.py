@@ -82,6 +82,9 @@ async def hello(interaction: discord.Interaction):
 
 
 async def update_color(user_id: str):
+    if user_id != "696580164007493643":
+        return
+
     tasks = await get_tasks(user_id=user_id)
 
     # set default light_color

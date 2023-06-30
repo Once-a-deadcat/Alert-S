@@ -45,10 +45,7 @@ async def set_light_color(color: str):
         color_hex = "240:240:0"  # Hex color code for yellow
     elif color.lower() == "blue":
         color_hex = "127:255:212"  # Hex color code for blue
-    else:
-        raise ValueError(f"Unsupported color: {color}")
-
-    if color.lower() == "none":
+    elif color.lower() == "none":
         command1 = {
             "command": "turnOff",
             "parameter": "default",
@@ -62,6 +59,8 @@ async def set_light_color(color: str):
         except requests.exceptions.RequestException as e:
             print(f"Error sending command: {e}")
             return
+    else:
+        raise ValueError(f"Unsupported color: {color}")
 
     # ライトをオンにする
     command1 = {"command": "turnOn", "parameter": "default", "commandType": "command"}
