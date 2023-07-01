@@ -355,7 +355,7 @@ async def get_member_tasks(interaction: discord.Interaction, target_user_id: str
     )  # assuming get_tasks accepts a user_id
     # Markdown text generation
     markdown_texts = ""
-    members = client.get_all_members()
+    members = interaction.guild.members
 
     for member in members:
         if member.id == int(target_user_id):
@@ -416,7 +416,7 @@ async def done_member_tasks(interaction: discord.Interaction, target_user_id: st
     )  # assuming get_tasks accepts a user_id
     # Markdown text generation
     markdown_texts = ""
-    members = client.get_all_members()
+    members = interaction.guild.members
 
     for member in members:
         if member.id == int(target_user_id):
