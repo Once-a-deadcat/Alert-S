@@ -6,6 +6,26 @@ This DiscordBot supports sending alert signals to Switchbot items on your desk.
 You can send an alert to the Switchbot owner set in this environment.
 The user should describe the urgency level and details.
 
+**About required items**
+
+Even without it, it can be used as a task management application. If there is someone who wants to prepare the same environment, try using it.
+
+↓↓↓
+
+**Switchbot Hub**
+
+https://www.amazon.co.jp/dp/B07TTH5TMW/
+
+**Switchbot Color Led**
+
+https://www.amazon.co.jp/gp/product/B09DGBYQD4
+
+**Power plug & stand**
+
+https://www.amazon.co.jp/gp/product/B0876WB1XQ/
+
+
+
 **priority rule**
 
 ・red >> yellow >> blue
