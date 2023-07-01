@@ -167,7 +167,7 @@ async def member_options(
     interaction: discord.Interaction, current: str
 ) -> List[app_commands.Choice[str]]:
     data = []
-    members = client.get_all_members()
+    members = interaction.guild.members
     for member in members:
         if not member.bot:
             if member.nick is not None:
