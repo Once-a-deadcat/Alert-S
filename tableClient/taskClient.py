@@ -9,7 +9,7 @@ connection_string = os.environ["CONNECTION_STRING"]
 table_service_client = TableServiceClient.from_connection_string(connection_string)
 
 
-async def get_tasks(user_id):
+async def get_tasks(user_id, server_id):
     # 新しいテーブルを作成する
     table_name = "tasks"
 
@@ -22,15 +22,23 @@ async def get_tasks(user_id):
 
     table_client = table_service_client.get_table_client(table_name)
     # エンティティを取得する
-    filter = f"PartitionKey eq 'tasks-{user_id}'"
-    entities = list(table_client.query_entities(query_filter=filter))
-    print("Retrieved Entities:")
-    print(entities)
+    if server_id == 0:
+        filter = f"PartitionKey eq 'tasks-{user_id}'"
+        entities = list(table_client.query_entities(query_filter=filter))
+        print("Retrieved Entities:")
+        print(entities)
+        return entities
+    else:
+        filter = f"PartitionKey eq 'tasks-{user_id}' and ServerId eq '{server_id}'"
+        entities = list(table_client.query_entities(query_filter=filter))
+        print("Retrieved Entities:")
+        print(entities)
+        return entities
 
-    return entities
 
-
-async def create_tasks(user_id, task_title, task_detail, task_status, task_color):
+async def create_tasks(
+    user_id, server_id, task_title, task_detail, task_status, task_color
+):
     # 新しいテーブルを作成する
     table_name = f"tasks"
 
@@ -40,12 +48,14 @@ async def create_tasks(user_id, task_title, task_detail, task_status, task_color
     except ResourceExistsError:
         print(f"Table '{table_name}' already exists.")
 
-    tasks = await get_tasks(user_id=user_id)
+    tasks = await get_tasks(user_id=user_id, server_id=server_id)
     taskId = len(tasks) + 1
     # エンティティを追加する
     entity = {
         "PartitionKey": f"tasks-{user_id}",
-        "RowKey": f"{taskId}",
+        "RowKey": f"{taskId}-{server_id}",
+        "TaskId": f"{taskId}",
+        "ServerId": f"{server_id}",
         "TaskTitle": task_title,
         "TaskDetail": task_detail,
         "TaskStatus": task_status,
@@ -57,16 +67,18 @@ async def create_tasks(user_id, task_title, task_detail, task_status, task_color
     print("Entity added successfully.")
 
     # エンティティを取得する
-    retrieved_entity = table_client.get_entity(
-        partition_key=f"tasks-{user_id}", row_key=f"{taskId}"
-    )
+    # retrieved_entity = table_client.get_entity(
+    #     partition_key=f"tasks-{user_id}", row_key=f"{taskId}"
+    # )
+    filter = f"PartitionKey eq 'tasks-{user_id}' and RowKey eq '{taskId}-{server_id}' and ServerId eq '{server_id}'"
+    entities = list(table_client.query_entities(query_filter=filter))
     print("Retrieved Entity:")
-    print(retrieved_entity)
+    print(entities)
 
-    return retrieved_entity
+    return entities[0]
 
 
-async def update_tasks(user_id, task_id, task_status):
+async def update_tasks(user_id, server_id, task_id, task_status):
     # テーブル名の指定
     table_name = "tasks"
 
@@ -76,7 +88,7 @@ async def update_tasks(user_id, task_id, task_status):
     # エンティティの取得
     try:
         entity = table_client.get_entity(
-            partition_key=f"tasks-{user_id}", row_key=task_id
+            partition_key=f"tasks-{user_id}", row_key=f"{task_id}-{server_id}"
         )
     except ResourceNotFoundError:
         print(f"Task '{task_id}' not found.")
@@ -92,13 +104,13 @@ async def update_tasks(user_id, task_id, task_status):
 
     # 更新されたエンティティの取得
     updated_entity = table_client.get_entity(
-        partition_key=f"tasks-{user_id}", row_key=task_id
+        partition_key=f"tasks-{user_id}", row_key=f"{task_id}-{server_id}"
     )
 
     return updated_entity
 
 
-async def delete_tasks(user_id, task_id):
+async def delete_tasks(user_id, server_id, task_id):
     # テーブル名の指定
     table_name = "tasks"
 
@@ -107,14 +119,16 @@ async def delete_tasks(user_id, task_id):
 
     try:
         delete_task = table_client.get_entity(
-            partition_key=f"tasks-{user_id}", row_key=task_id
+            partition_key=f"tasks-{user_id}", row_key=f"{task_id}-{server_id}"
         )
     except ResourceNotFoundError:
         print(f"Task '{task_id}' not found.")
         return
 
     # エンティティの削除
-    table_client.delete_entity(partition_key=f"tasks-{user_id}", row_key=task_id)
+    table_client.delete_entity(
+        partition_key=f"tasks-{user_id}", row_key=f"{task_id}-{server_id}"
+    )
 
     print(f"Task '{task_id}' deleted successfully.")
 
