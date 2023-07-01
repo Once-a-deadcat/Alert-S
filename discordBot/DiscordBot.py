@@ -64,14 +64,6 @@ def format_device_list(device_data):
 
 
 # slash commandを受信した時に呼ばれる
-@tree.command(name="hello", description="あいさつを返してくれます")
-async def hello(interaction: discord.Interaction):
-    logger.info("/hello command received")
-    reply_text = "Hello!"
-    await interaction.response.send_message(reply_text, ephemeral=True)
-
-
-# slash commandを受信した時に呼ばれる
 @tree.command(name="list", description="デバイスリストを返してくれます")
 async def list(interaction: discord.Interaction):
     logger.info("/list command received")
@@ -387,6 +379,36 @@ async def create(
     await interaction.followup.send(markdown_text, ephemeral=False)
 
 
+@tree.command(name="create_member_task", description="Jobを作成してくれます")
+@app_commands.autocomplete(
+    task_color=task_color_options,
+    target_user_id=member_options,
+)
+async def create_member_task(
+    interaction: discord.Interaction,
+    task_title: str,
+    task_detail: str,
+    task_color: str,
+    target_user_id: str,
+):
+    await interaction.response.defer()
+    user_id = target_user_id
+    task_status = "NOT TOUCHED"
+    created_task = await create_tasks(
+        user_id, task_title, task_detail, task_status, task_color
+    )
+    await update_color(int(user_id))
+    # await create_state(user_id, created_task["TaskColor"])
+    logger.info(f"create command received")
+    logger.info(f"created task: {created_task}")
+    markdown_text = f"### Color:  {created_task['TaskColor']}\n"
+    markdown_text += f'- TaskId:  {created_task["RowKey"]}  /  Status:  {created_task["TaskStatus"]}\n'
+    markdown_text += f'\tTitle:  {created_task["TaskTitle"]}\n'
+    markdown_text += f'\tDetail: {created_task["TaskDetail"]}\n'
+    markdown_text += f"### Jobが作成されました.\n"
+    await interaction.followup.send(markdown_text, ephemeral=False)
+
+
 async def task_status_options(
     interaction: discord.Interaction, current: str
 ) -> List[app_commands.Choice[str]]:
@@ -441,6 +463,47 @@ async def delete(interaction: discord.Interaction, task_id: str):
         await interaction.followup.send("Task not found.", ephemeral=False)
         return
     await update_color(user_id)
+    logger.info(f"delete_tasks command received")
+    logger.info(f"delete_tasks task: {deleted_task}")
+    markdown_text = f"### Color:  {deleted_task['TaskColor']}\n"
+    markdown_text += f'- TaskId:  {deleted_task["RowKey"]}  /  Status:  {deleted_task["TaskStatus"]}\n'
+    markdown_text += f'\tTitle:  {deleted_task["TaskTitle"]}\n'
+    markdown_text += f'\tDetail: {deleted_task["TaskDetail"]}\n'
+    markdown_text += f"### Jobが削除されました.\n"
+    await interaction.followup.send(markdown_text, ephemeral=False)
+
+
+async def task_id_options_by_userid(
+    interaction: discord.Interaction, current: str
+) -> List[app_commands.Choice[str]]:
+    data = []
+    user_id = interaction.data["options"][0][
+        "value"
+    ]  # assuming the user_id is the first option
+    tasks = await get_tasks(user_id)
+    for task in tasks:
+        if current.lower() in task["RowKey"].lower():
+            choice = f'・TaskId:  {task["RowKey"]}  /  Title:  {task["TaskTitle"]}  /  Status:  {task["TaskStatus"]}  /  Color:  {task["TaskColor"]}\n'
+            data.append(app_commands.Choice(name=choice, value=task["RowKey"]))
+    return data
+
+
+@tree.command(name="delete_member_task", description="Jobを削除してくれます")
+@app_commands.autocomplete(
+    target_user_id=member_options,
+    task_id=task_id_options_by_userid,
+)
+async def delete_member_task(
+    interaction: discord.Interaction, target_user_id: str, task_id: str
+):
+    await interaction.response.defer()
+    user_id = target_user_id
+    # task select by user_id
+    deleted_task = await delete_tasks(user_id, task_id)
+    if deleted_task is None:
+        await interaction.followup.send("Task not found.", ephemeral=False)
+        return
+    await update_color(int(user_id))
     logger.info(f"delete_tasks command received")
     logger.info(f"delete_tasks task: {deleted_task}")
     markdown_text = f"### Color:  {deleted_task['TaskColor']}\n"

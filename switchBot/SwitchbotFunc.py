@@ -72,7 +72,7 @@ async def set_light_color(color: str):
         print(f"Error sending command: {e}")
 
     # ライトの明るさを50%にする
-    command2 = {"command": "setBrightness", "parameter": 5, "commandType": "command"}
+    command2 = {"command": "setBrightness", "parameter": 3, "commandType": "command"}
     try:
         res = requests.post(device_url, headers=headers, json=command2)
         res.raise_for_status()
