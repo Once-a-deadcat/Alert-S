@@ -8,6 +8,7 @@ import logging
 from tableClient.taskClient import get_tasks, create_tasks, update_tasks, delete_tasks
 from tableClient.stateClient import get_state, create_state, update_state
 from discord import (
+    Guild,
     app_commands,
     Interaction,
     SelectOption,
@@ -72,7 +73,7 @@ async def hello(interaction: discord.Interaction):
 
 # slash commandを受信した時に呼ばれる
 @tree.command(name="list", description="デバイスリストを返してくれます")
-async def hello(interaction: discord.Interaction):
+async def list(interaction: discord.Interaction):
     logger.info("/list command received")
 
     device_list = await get_device_list()
@@ -115,7 +116,7 @@ async def update_color(user_id: int):
 
 
 @tree.command(name="get", description="Job一覧を返してくれます")
-async def hello(interaction: discord.Interaction):
+async def get(interaction: discord.Interaction):
     logger.info("/get command received")
 
     user_id = interaction.user.id
@@ -166,57 +167,26 @@ async def hello(interaction: discord.Interaction):
     await interaction.response.send_message(markdown_texts, ephemeral=False)
 
 
-@tree.command(name="get_member_tasks", description="Job一覧を返します(指定したユーザー)")
-@app_commands.autocomplete()
-async def hello(interaction: discord.Interaction, target_user: User):
-    tasks = await get_tasks(target_user.id)  # assuming get_tasks accepts a user_id
-    # Markdown text generation
-    markdown_texts = ""
-    markdown_text = f"### User: {target_user.name}\n"  # Grouping tasks by color
-    if len(tasks) == 0:
-        markdown_text += "No tasks found.\n"
-        await interaction.response.send_message(markdown_text, ephemeral=False)
-        return
-    tasks_by_color = dict()
-    for task in tasks:
-        color = task["TaskColor"].upper()  # Unify the color representation
-        if color not in tasks_by_color:
-            tasks_by_color[color] = []
-        tasks_by_color[color].append(task)
-
-    # Order of colors
-    color_order = ["RED", "YELLOW", "BLUE"]
-    markdown_texts += markdown_text
-    markdown_text = ""
-
-    # Generating markdown for each color in the specified order
-    for color in color_order:
-        if color in tasks_by_color:
-            tasks_in_color = tasks_by_color[color]
-            active_flag = False
-            markdown_text += f"### Color:  {color}\n"
-
-            for task in tasks_in_color:
-                if task["TaskStatus"].upper() != "COMPLETED":
-                    markdown_text += f'- TaskId:  {task["RowKey"]}  /  Status:  {task["TaskStatus"]}\n'
-                    markdown_text += f'\tTitle:  {task["TaskTitle"]}\n'
-                    markdown_text += f'\tDetail: {task["TaskDetail"]}\n'
-                    active_flag = True
-
-            if active_flag:
-                markdown_texts += markdown_text
-                markdown_text = ""
+async def member_options(
+    interaction: discord.Interaction, current: str
+) -> List[app_commands.Choice[str]]:
+    data = []
+    members = client.get_all_members()
+    for member in members:
+        if not member.bot:
+            if member.nick is not None:
+                data.append(
+                    app_commands.Choice(name=str(member.nick), value=str(member.id))
+                )
             else:
-                markdown_text = ""
-
-    if markdown_texts == "":
-        markdown_texts = "No tasks found."
-
-    await interaction.response.send_message(markdown_texts, ephemeral=False)
+                data.append(
+                    app_commands.Choice(name=str(member.name), value=str(member.id))
+                )
+    return data
 
 
 @tree.command(name="done", description="完了したJob一覧を返してくれます")
-async def hello(interaction: discord.Interaction):
+async def done(interaction: discord.Interaction):
     logger.info("/done command received")
 
     user_id = interaction.user.id
@@ -267,13 +237,78 @@ async def hello(interaction: discord.Interaction):
     await interaction.response.send_message(markdown_texts, ephemeral=False)
 
 
-@tree.command(name="done_member_tasks", description="完了したJob一覧を返します(指定したユーザー)")
-@app_commands.autocomplete()
-async def hello(interaction: discord.Interaction, target_user: User):
-    tasks = await get_tasks(target_user.id)  # assuming get_tasks accepts a user_id
+@tree.command(name="get_member_tasks", description="Job一覧を返します(指定したユーザー)")
+@app_commands.autocomplete(target_user_id=member_options)
+async def get_member_tasks(interaction: discord.Interaction, target_user_id: str):
+    # target_user = client.get_user(int(target_user_id))
+    tasks = await get_tasks(target_user_id)  # assuming get_tasks accepts a user_id
     # Markdown text generation
     markdown_texts = ""
-    markdown_text = f"### User: {target_user.name}\n"  # Grouping tasks by color
+    members = client.get_all_members()
+    for member in members:
+        if member.id == int(target_user_id):
+            if member.nick is not None:
+                name = member.nick
+            else:
+                name = member.name
+    markdown_text = f"### User: {name}\n"  # Grouping tasks by color
+    if len(tasks) == 0:
+        markdown_text += "No tasks found.\n"
+        await interaction.response.send_message(markdown_text, ephemeral=False)
+        return
+    tasks_by_color = dict()
+    for task in tasks:
+        color = task["TaskColor"].upper()  # Unify the color representation
+        if color not in tasks_by_color:
+            tasks_by_color[color] = []
+        tasks_by_color[color].append(task)
+
+    # Order of colors
+    color_order = ["RED", "YELLOW", "BLUE"]
+    markdown_texts += markdown_text
+    markdown_text = ""
+
+    # Generating markdown for each color in the specified order
+    for color in color_order:
+        if color in tasks_by_color:
+            tasks_in_color = tasks_by_color[color]
+            active_flag = False
+            markdown_text += f"### Color:  {color}\n"
+
+            for task in tasks_in_color:
+                if task["TaskStatus"].upper() != "COMPLETED":
+                    markdown_text += f'- TaskId:  {task["RowKey"]}  /  Status:  {task["TaskStatus"]}\n'
+                    markdown_text += f'\tTitle:  {task["TaskTitle"]}\n'
+                    markdown_text += f'\tDetail: {task["TaskDetail"]}\n'
+                    active_flag = True
+
+            if active_flag:
+                markdown_texts += markdown_text
+                markdown_text = ""
+            else:
+                markdown_text = ""
+
+    if markdown_texts == "":
+        markdown_texts = "No tasks found."
+
+    await interaction.response.send_message(markdown_texts, ephemeral=False)
+
+
+@tree.command(name="done_member_tasks", description="完了したJob一覧を返します(指定したユーザー)")
+@app_commands.autocomplete(target_user_id=member_options)
+async def done_member_tasks(interaction: discord.Interaction, target_user_id: str):
+    # target_user = client.get_user(int(target_user_id))
+    tasks = await get_tasks(target_user_id)  # assuming get_tasks accepts a user_id
+    # Markdown text generation
+    markdown_texts = ""
+    members = client.get_all_members()
+    for member in members:
+        if member.id == int(target_user_id):
+            if member.nick is not None:
+                name = member.nick
+            else:
+                name = member.name
+    markdown_text = f"### User: {name}\n"  # Grouping tasks by color
     if len(tasks) == 0:
         markdown_text += "No tasks found.\n"
         await interaction.response.send_message(markdown_text, ephemeral=False)
@@ -331,7 +366,7 @@ async def task_color_options(
 @app_commands.autocomplete(
     task_color=task_color_options,
 )
-async def hello(
+async def create(
     interaction: discord.Interaction, task_title: str, task_detail: str, task_color: str
 ):
     await interaction.response.defer()
@@ -378,7 +413,7 @@ async def task_id_options(
 
 @tree.command(name="update", description="Jobのステータスを更新してくれます")
 @app_commands.autocomplete(task_id=task_id_options, task_status=task_status_options)
-async def hello(interaction: discord.Interaction, task_id: str, task_status: str):
+async def update(interaction: discord.Interaction, task_id: str, task_status: str):
     await interaction.response.defer()
     user_id = interaction.user.id
     created_task = await update_tasks(user_id, task_id, task_status)
@@ -398,7 +433,7 @@ async def hello(interaction: discord.Interaction, task_id: str, task_status: str
 
 @tree.command(name="delete", description="Jobを削除してくれます")
 @app_commands.autocomplete(task_id=task_id_options)
-async def hello(interaction: discord.Interaction, task_id: str):
+async def delete(interaction: discord.Interaction, task_id: str):
     await interaction.response.defer()
     user_id = interaction.user.id
     deleted_task = await delete_tasks(user_id, task_id)
@@ -420,7 +455,7 @@ async def hello(interaction: discord.Interaction, task_id: str):
 @app_commands.autocomplete(
     color=task_color_options,
 )
-async def hello(interaction: discord.Interaction, color: str):
+async def light(interaction: discord.Interaction, color: str):
     await interaction.response.defer()
     logger.info("Setting light color to red...")
     user_id = interaction.user.id
