@@ -40,9 +40,9 @@ async def set_light_color(color: str):
     headers = make_request_header(token, secret)
 
     if color.lower() == "red":
-        color_hex = "150:10:10"  # Hex color code for red
+        color_hex = "180:20:20"  # Hex color code for red
     elif color.lower() == "yellow":
-        color_hex = "240:240:0"  # Hex color code for yellow
+        color_hex = "200:200:0"  # Hex color code for yellow
     elif color.lower() == "blue":
         color_hex = "127:255:212"  # Hex color code for blue
     elif color.lower() == "none":
@@ -72,7 +72,7 @@ async def set_light_color(color: str):
         print(f"Error sending command: {e}")
 
     # ライトの明るさを50%にする
-    command2 = {"command": "setBrightness", "parameter": 5, "commandType": "command"}
+    command2 = {"command": "setBrightness", "parameter": 10, "commandType": "command"}
     try:
         res = requests.post(device_url, headers=headers, json=command2)
         res.raise_for_status()

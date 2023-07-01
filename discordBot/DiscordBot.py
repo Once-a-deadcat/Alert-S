@@ -81,8 +81,8 @@ async def hello(interaction: discord.Interaction):
     await interaction.response.send_message(formatted_list, ephemeral=False)
 
 
-async def update_color(user_id: str):
-    if user_id != "696580164007493643":
+async def update_color(user_id: int):
+    if user_id != 696580164007493643:
         return
 
     tasks = await get_tasks(user_id=user_id)
@@ -92,19 +92,20 @@ async def update_color(user_id: str):
 
     if len(tasks) > 0:
         for task in tasks:
-            if task["TaskColor"] == "RED":
-                light_color = "RED"
-                await set_light_color(light_color)
-                # await update_state(user_id, light_color)
-                break  # As RED is the highest priority, we can break the loop when we find it.
-            elif task["TaskColor"] == "YELLOW":
-                light_color = (
-                    "YELLOW"  # If we later find a RED task, this will be overwritten.
-                )
-            elif task["TaskColor"] == "BLUE" and light_color == "NONE":
-                light_color = (
-                    "BLUE"  # BLUE is only set if no RED or YELLOW tasks are found.
-                )
+            if task["TaskStatus"].upper() != "COMPLETED":
+                if task["TaskColor"] == "RED":
+                    light_color = "RED"
+                    await set_light_color(light_color)
+                    # await update_state(user_id, light_color)
+                    break  # As RED is the highest priority, we can break the loop when we find it.
+                elif task["TaskColor"] == "YELLOW":
+                    light_color = "YELLOW"  # If we later find a RED task, this will be overwritten.
+                elif task["TaskColor"] == "BLUE" and light_color == "NONE":
+                    light_color = (
+                        "BLUE"  # BLUE is only set if no RED or YELLOW tasks are found.
+                    )
+            else:
+                pass  # If the task is completed, we don't need to do anything.
 
     # Update the color only once after checking all tasks
     await set_light_color(light_color)
@@ -125,6 +126,7 @@ async def hello(interaction: discord.Interaction):
         return
 
     # Markdown text generation
+    markdown_texts = ""
     markdown_text = ""
 
     # Grouping tasks by color
@@ -142,13 +144,26 @@ async def hello(interaction: discord.Interaction):
     for color in color_order:
         if color in tasks_by_color:
             tasks_in_color = tasks_by_color[color]
+            active_flag = False
             markdown_text += f"### Color:  {color}\n"
+
             for task in tasks_in_color:
                 if task["TaskStatus"].upper() != "COMPLETED":
-                    markdown_text += f'・TaskId:  {task["RowKey"]}  /  Title:  {task["TaskTitle"]}  /  Status:  {task["TaskStatus"]}\n'
-                    markdown_text += f'\t Detail: {task["TaskDetail"]}\n'
+                    markdown_text += f'- TaskId:  {task["RowKey"]}  /  Status:  {task["TaskStatus"]}\n'
+                    markdown_text += f'\tTitle:  {task["TaskTitle"]}\n'
+                    markdown_text += f'\tDetail: {task["TaskDetail"]}\n'
+                    active_flag = True
 
-    await interaction.response.send_message(markdown_text, ephemeral=False)
+            if active_flag:
+                markdown_texts += markdown_text
+                markdown_text = ""
+            else:
+                markdown_text = ""
+
+    if markdown_texts == "":
+        markdown_texts = "No tasks found."
+
+    await interaction.response.send_message(markdown_texts, ephemeral=False)
 
 
 @tree.command(name="get_member_tasks", description="Job一覧を返します(指定したユーザー)")
@@ -156,6 +171,7 @@ async def hello(interaction: discord.Interaction):
 async def hello(interaction: discord.Interaction, target_user: User):
     tasks = await get_tasks(target_user.id)  # assuming get_tasks accepts a user_id
     # Markdown text generation
+    markdown_texts = ""
     markdown_text = f"### User: {target_user.name}\n"  # Grouping tasks by color
     if len(tasks) == 0:
         markdown_text += "No tasks found.\n"
@@ -170,17 +186,33 @@ async def hello(interaction: discord.Interaction, target_user: User):
 
     # Order of colors
     color_order = ["RED", "YELLOW", "BLUE"]
+    markdown_texts += markdown_text
+    markdown_text = ""
 
     # Generating markdown for each color in the specified order
     for color in color_order:
         if color in tasks_by_color:
             tasks_in_color = tasks_by_color[color]
+            active_flag = False
             markdown_text += f"### Color:  {color}\n"
+
             for task in tasks_in_color:
                 if task["TaskStatus"].upper() != "COMPLETED":
-                    markdown_text += f'・TaskId:  {task["RowKey"]}  /  Title:  {task["TaskTitle"]}  /  Status:  {task["TaskStatus"]}\n'
-                    markdown_text += f'\t Detail: {task["TaskDetail"]}\n'
-    await interaction.response.send_message(markdown_text, ephemeral=False)
+                    markdown_text += f'- TaskId:  {task["RowKey"]}  /  Status:  {task["TaskStatus"]}\n'
+                    markdown_text += f'\tTitle:  {task["TaskTitle"]}\n'
+                    markdown_text += f'\tDetail: {task["TaskDetail"]}\n'
+                    active_flag = True
+
+            if active_flag:
+                markdown_texts += markdown_text
+                markdown_text = ""
+            else:
+                markdown_text = ""
+
+    if markdown_texts == "":
+        markdown_texts = "No tasks found."
+
+    await interaction.response.send_message(markdown_texts, ephemeral=False)
 
 
 @tree.command(name="done", description="完了したJob一覧を返してくれます")
@@ -195,6 +227,7 @@ async def hello(interaction: discord.Interaction):
         return
 
     # Markdown text generation
+    markdown_texts = ""
     markdown_text = ""
 
     # Grouping tasks by color
@@ -212,13 +245,26 @@ async def hello(interaction: discord.Interaction):
     for color in color_order:
         if color in tasks_by_color:
             tasks_in_color = tasks_by_color[color]
+            active_flag = False
             markdown_text += f"### Color:  {color}\n"
+
             for task in tasks_in_color:
                 if task["TaskStatus"].upper() == "COMPLETED":
-                    markdown_text += f'・TaskId:  {task["RowKey"]}  /  Title:  {task["TaskTitle"]}  /  Status:  {task["TaskStatus"]}\n'
-                    markdown_text += f'\t Detail: {task["TaskDetail"]}\n'
+                    markdown_text += f'- TaskId:  {task["RowKey"]}  /  Status:  {task["TaskStatus"]}\n'
+                    markdown_text += f'\tTitle: {task["TaskTitle"]}\n'
+                    markdown_text += f'\tDetail: {task["TaskDetail"]}\n'
+                    active_flag = True
 
-    await interaction.response.send_message(markdown_text, ephemeral=False)
+            if active_flag:
+                markdown_texts += markdown_text
+                markdown_text = ""
+            else:
+                markdown_text = ""
+
+    if markdown_texts == "":
+        markdown_texts = "No tasks found."
+
+    await interaction.response.send_message(markdown_texts, ephemeral=False)
 
 
 @tree.command(name="done_member_tasks", description="完了したJob一覧を返します(指定したユーザー)")
@@ -226,6 +272,7 @@ async def hello(interaction: discord.Interaction):
 async def hello(interaction: discord.Interaction, target_user: User):
     tasks = await get_tasks(target_user.id)  # assuming get_tasks accepts a user_id
     # Markdown text generation
+    markdown_texts = ""
     markdown_text = f"### User: {target_user.name}\n"  # Grouping tasks by color
     if len(tasks) == 0:
         markdown_text += "No tasks found.\n"
@@ -240,17 +287,33 @@ async def hello(interaction: discord.Interaction, target_user: User):
 
     # Order of colors
     color_order = ["RED", "YELLOW", "BLUE"]
+    markdown_texts += markdown_text
+    markdown_text = ""
 
     # Generating markdown for each color in the specified order
     for color in color_order:
         if color in tasks_by_color:
             tasks_in_color = tasks_by_color[color]
+            active_flag = False
             markdown_text += f"### Color:  {color}\n"
+
             for task in tasks_in_color:
                 if task["TaskStatus"].upper() == "COMPLETED":
-                    markdown_text += f'・TaskId:  {task["RowKey"]}  /  Title:  {task["TaskTitle"]}  /  Status:  {task["TaskStatus"]}\n'
-                    markdown_text += f'\t Detail: {task["TaskDetail"]}\n'
-    await interaction.response.send_message(markdown_text, ephemeral=False)
+                    markdown_text += f'- TaskId:  {task["RowKey"]}  /  Status:  {task["TaskStatus"]}\n'
+                    markdown_text += f'\tTitle:  {task["TaskTitle"]}\n'
+                    markdown_text += f'\tDetail: {task["TaskDetail"]}\n'
+                    active_flag = True
+
+            if active_flag:
+                markdown_texts += markdown_text
+                markdown_text = ""
+            else:
+                markdown_text = ""
+
+    if markdown_texts == "":
+        markdown_texts = "No tasks found."
+
+    await interaction.response.send_message(markdown_texts, ephemeral=False)
 
 
 async def task_color_options(
@@ -282,8 +345,9 @@ async def hello(
     logger.info(f"create command received")
     logger.info(f"created task: {created_task}")
     markdown_text = f"### Color:  {created_task['TaskColor']}\n"
-    markdown_text += f'・TaskId:  {created_task["RowKey"]}  /  Title:  {created_task["TaskTitle"]}  /  Status:  {created_task["TaskStatus"]}\n'
-    markdown_text += f'\t Detail: {created_task["TaskDetail"]}\n'
+    markdown_text += f'- TaskId:  {created_task["RowKey"]}  /  Status:  {created_task["TaskStatus"]}\n'
+    markdown_text += f'\tTitle:  {created_task["TaskTitle"]}\n'
+    markdown_text += f'\tDetail: {created_task["TaskDetail"]}\n'
     markdown_text += f"### Jobが作成されました.\n"
     await interaction.followup.send(markdown_text, ephemeral=False)
 
@@ -307,7 +371,7 @@ async def task_id_options(
     tasks = await get_tasks(user_id)
     for task in tasks:
         if current.lower() in task["RowKey"].lower():
-            choice = f'・TaskId:  {task["RowKey"]}  /  Title:  {task["TaskTitle"]}  /  Status:  {task["TaskStatus"]}\n'
+            choice = f'・TaskId:  {task["RowKey"]}  /  Title:  {task["TaskTitle"]}  /  Status:  {task["TaskStatus"]}  /  Color:  {task["TaskColor"]}\n'
             data.append(app_commands.Choice(name=choice, value=task["RowKey"]))
     return data
 
@@ -325,8 +389,9 @@ async def hello(interaction: discord.Interaction, task_id: str, task_status: str
     logger.info(f"update_tasks command received")
     logger.info(f"update_tasks task: {created_task}")
     markdown_text = f"### Color:  {created_task['TaskColor']}\n"
-    markdown_text += f'・TaskId:  {created_task["RowKey"]}  /  Title:  {created_task["TaskTitle"]}  /  Status:  {created_task["TaskStatus"]}\n'
-    markdown_text += f'\t Detail: {created_task["TaskDetail"]}\n'
+    markdown_text += f'- TaskId:  {created_task["RowKey"]}  /  Status:  {created_task["TaskStatus"]}\n'
+    markdown_text += f'\tTitle:  {created_task["TaskTitle"]}\n'
+    markdown_text += f'\tDetail: {created_task["TaskDetail"]}\n'
     markdown_text += f"### Jobの状態が更新されました.\n"
     await interaction.followup.send(markdown_text, ephemeral=False)
 
@@ -344,8 +409,9 @@ async def hello(interaction: discord.Interaction, task_id: str):
     logger.info(f"delete_tasks command received")
     logger.info(f"delete_tasks task: {deleted_task}")
     markdown_text = f"### Color:  {deleted_task['TaskColor']}\n"
-    markdown_text += f'・TaskId:  {deleted_task["RowKey"]}  /  Title:  {deleted_task["TaskTitle"]}  /  Status:  {deleted_task["TaskStatus"]}\n'
-    markdown_text += f'\t Detail: {deleted_task["TaskDetail"]}\n'
+    markdown_text += f'- TaskId:  {deleted_task["RowKey"]}  /  Status:  {deleted_task["TaskStatus"]}\n'
+    markdown_text += f'\tTitle:  {deleted_task["TaskTitle"]}\n'
+    markdown_text += f'\tDetail: {deleted_task["TaskDetail"]}\n'
     markdown_text += f"### Jobが削除されました.\n"
     await interaction.followup.send(markdown_text, ephemeral=False)
 
@@ -357,9 +423,13 @@ async def hello(interaction: discord.Interaction, task_id: str):
 async def hello(interaction: discord.Interaction, color: str):
     await interaction.response.defer()
     logger.info("Setting light color to red...")
-    await set_light_color(color)
-    logger.info("Light color set to red")
-    await interaction.followup.send(f"{color} に光らせました!!")
+    user_id = interaction.user.id
+    if user_id == 696580164007493643:
+        await set_light_color(color)
+        logger.info("Light color set to red")
+        await interaction.followup.send(f"{color} に光らせました!!")
+    else:
+        await interaction.followup.send(f"あなたはこのコマンドを実行できません")
 
 
 # メッセージを受信した時に呼ばれる
