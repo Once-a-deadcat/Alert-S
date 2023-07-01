@@ -126,6 +126,7 @@ LED_DEVICE_ID=
 
 # Discord environment
 DISCORD_TOKEN=
+DISCORD_USER_ID= 
 
 # Azure Blob Storage environment
 CONNECTION_STRING=
@@ -171,6 +172,7 @@ az container create \
     API_KEY="" \
     CLIENT_SECRET="" \
     DISCORD_TOKEN="" \
+    DISCORD_USER_ID= \
     CONNECTION_STRING="" \
     CONTAINER_NAME="" \
     LED_DEVICE_ID="" \

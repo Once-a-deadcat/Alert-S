@@ -24,6 +24,7 @@ from typing import List
 # Configure logger settings
 CONNECTION_STRING = os.environ["CONNECTION_STRING"]
 CONTAINER_NAME = os.environ["CONTAINER_NAME"]
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -75,7 +76,8 @@ async def list(interaction: discord.Interaction):
 
 
 async def update_color(user_id: int):
-    if user_id != 696580164007493643:
+    DISCORD_USER_ID = os.environ["DISCORD_USER_ID"]
+    if user_id != DISCORD_USER_ID:
         return
 
     tasks = await get_tasks(user_id=user_id)
@@ -519,10 +521,11 @@ async def delete_member_task(
     color=task_color_options,
 )
 async def light(interaction: discord.Interaction, color: str):
+    DISCORD_USER_ID = os.environ["DISCORD_USER_ID"]
     await interaction.response.defer()
     logger.info("Setting light color to red...")
     user_id = interaction.user.id
-    if user_id == 696580164007493643:
+    if user_id == DISCORD_USER_ID:
         await set_light_color(color)
         logger.info("Light color set to red")
         await interaction.followup.send(f"{color} に光らせました!!")

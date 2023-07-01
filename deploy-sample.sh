@@ -36,3 +36,4 @@ az container create \
     CONNECTION_STRING="" \
     CONTAINER_NAME="" \
     LED_DEVICE_ID="" \
+    DISCORD_USER_ID= \
