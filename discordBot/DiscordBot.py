@@ -76,7 +76,7 @@ async def list(interaction: discord.Interaction):
 
 
 async def update_color(user_id: int):
-    DISCORD_USER_ID = os.environ["DISCORD_USER_ID"]
+    DISCORD_USER_ID = int(os.environ["DISCORD_USER_ID"])
     if user_id != DISCORD_USER_ID:
         return
 
@@ -521,7 +521,7 @@ async def delete_member_task(
     color=task_color_options,
 )
 async def light(interaction: discord.Interaction, color: str):
-    DISCORD_USER_ID = os.environ["DISCORD_USER_ID"]
+    DISCORD_USER_ID = int(os.environ["DISCORD_USER_ID"])
     await interaction.response.defer()
     logger.info("Setting light color to red...")
     user_id = interaction.user.id
