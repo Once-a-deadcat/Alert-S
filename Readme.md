@@ -6,7 +6,7 @@ This DiscordBot supports sending alert signals to Switchbot items on your desk.
 You can send an alert to the Switchbot owner set in this environment.
 The user should describe the urgency level and details.
 
-**About required items**
+**required items**
 
 Even without it, it can be used as a task management application. If there is someone who wants to prepare the same environment, try using it.
 
