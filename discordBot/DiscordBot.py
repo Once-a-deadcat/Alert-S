@@ -119,7 +119,7 @@ async def get(interaction: discord.Interaction):
     tasks = await get_tasks(user_id, server_id)
 
     if len(tasks) == 0:
-        await interaction.response.send_message("No tasks found.", ephemeral=False)
+        await interaction.response.send_message("No tasks found.", ephemeral=True)
         return
 
     # Markdown text generation
@@ -160,7 +160,7 @@ async def get(interaction: discord.Interaction):
     if markdown_texts == "":
         markdown_texts = "No tasks found."
 
-    await interaction.response.send_message(markdown_texts, ephemeral=False)
+    await interaction.response.send_message(markdown_texts, ephemeral=True)
 
 
 async def member_options(
@@ -191,7 +191,7 @@ async def done(interaction: discord.Interaction):
     tasks = await get_tasks(user_id, server_id)
 
     if len(tasks) == 0:
-        await interaction.response.send_message("No tasks found.", ephemeral=False)
+        await interaction.response.send_message("No tasks found.", ephemeral=True)
         return
 
     # Markdown text generation
@@ -232,7 +232,7 @@ async def done(interaction: discord.Interaction):
     if markdown_texts == "":
         markdown_texts = "No tasks found."
 
-    await interaction.response.send_message(markdown_texts, ephemeral=False)
+    await interaction.response.send_message(markdown_texts, ephemeral=True)
 
 
 @tree.command(name="get_all_tasks", description="全サーバーでのJob一覧を返してくれます")
@@ -301,7 +301,7 @@ async def get(interaction: discord.Interaction):
     tasks = await get_tasks(user_id, server_id)
 
     if len(tasks) == 0:
-        await interaction.response.send_message("No tasks found.", ephemeral=False)
+        await interaction.response.send_message("No tasks found.", ephemeral=True)
         return
 
     # Markdown text generation
@@ -366,7 +366,7 @@ async def get_member_tasks(interaction: discord.Interaction, target_user_id: str
     markdown_text = f"### User: {name}\n"  # Grouping tasks by color
     if len(tasks) == 0:
         markdown_text += "No tasks found.\n"
-        await interaction.response.send_message(markdown_text, ephemeral=False)
+        await interaction.response.send_message(markdown_text, ephemeral=True)
         return
     tasks_by_color = dict()
     for task in tasks:
@@ -427,7 +427,7 @@ async def done_member_tasks(interaction: discord.Interaction, target_user_id: st
     markdown_text = f"### User: {name}\n"  # Grouping tasks by color
     if len(tasks) == 0:
         markdown_text += "No tasks found.\n"
-        await interaction.response.send_message(markdown_text, ephemeral=False)
+        await interaction.response.send_message(markdown_text, ephemeral=True)
         return
     tasks_by_color = dict()
     for task in tasks:
@@ -580,13 +580,13 @@ async def task_id_options(
 @tree.command(name="update", description="Jobのステータスを更新してくれます")
 @app_commands.autocomplete(task_id=task_id_options, task_status=task_status_options)
 async def update(interaction: discord.Interaction, task_id: str, task_status: str):
-    await interaction.response.defer()
+    await interaction.response.defer(ephemeral=True)
     user_id = interaction.user.id
     server_id = interaction.guild.id  # Get the server ID
 
     created_task = await update_tasks(user_id, server_id, task_id, task_status)
     if created_task is None:
-        await interaction.followup.send("Task not found.", ephemeral=False)
+        await interaction.followup.send("Task not found.", ephemeral=True)
         return
     color = await update_color(user_id)
     logger.info(f"update_tasks command received")
@@ -596,19 +596,19 @@ async def update(interaction: discord.Interaction, task_id: str, task_status: st
     markdown_text += f'\tTitle:  {created_task["TaskTitle"]}\n'
     markdown_text += f'\tDetail: {created_task["TaskDetail"]}\n'
     markdown_text += f"### Jobの状態が更新されました.\n"
-    await interaction.followup.send(markdown_text, ephemeral=False)
+    await interaction.followup.send(markdown_text, ephemeral=True)
 
 
 @tree.command(name="delete", description="Jobを削除してくれます")
 @app_commands.autocomplete(task_id=task_id_options)
 async def delete(interaction: discord.Interaction, task_id: str):
-    await interaction.response.defer()
+    await interaction.response.defer(ephemeral=True)
     user_id = interaction.user.id
     server_id = interaction.guild.id  # Get the server ID
 
     deleted_task = await delete_tasks(user_id, server_id, task_id)
     if deleted_task is None:
-        await interaction.followup.send("Task not found.", ephemeral=False)
+        await interaction.followup.send("Task not found.", ephemeral=True)
         return
     await update_color(user_id)
     logger.info(f"delete_tasks command received")
@@ -618,7 +618,7 @@ async def delete(interaction: discord.Interaction, task_id: str):
     markdown_text += f'\tTitle:  {deleted_task["TaskTitle"]}\n'
     markdown_text += f'\tDetail: {deleted_task["TaskDetail"]}\n'
     markdown_text += f"### Jobが削除されました.\n"
-    await interaction.followup.send(markdown_text, ephemeral=False)
+    await interaction.followup.send(markdown_text, ephemeral=True)
 
 
 async def task_id_options_by_userid(
@@ -696,6 +696,7 @@ async def light(interaction: discord.Interaction, color: str):
 async def on_message(message):
     # 自分のメッセージを無効
     if message.author == client.user:
+        await tree.sync()  # スラッシュコマンドを同期
         return
 
 
