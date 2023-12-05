@@ -25,6 +25,12 @@ class AzureTable:
         entities = list(table_client.query_entities(query_filter=filter))
         return entities
     
+    def get_tasks_for_status(self, user_id):
+        table_client = self.table_service_client.get_table_client(self.table_name)
+        filter = f"PartitionKey eq 'tasks-{user_id}'"
+        entities = list(table_client.query_entities(query_filter=filter))
+        return entities
+    
     def get_task(self, user_id, server_id, task_id):
         table_client = self.table_service_client.get_table_client(self.table_name)
         entity = table_client.get_entity(

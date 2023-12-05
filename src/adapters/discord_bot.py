@@ -81,7 +81,7 @@ async def update_color(user_id: int):
     if user_id != DISCORD_USER_ID:
         return
 
-    tasks = await bot.task_management.get_tasks(user_id=user_id, server_id=0)
+    tasks = await bot.task_management.get_tasks_for_status(user_id=user_id)
 
     # set default light_color
     light_color = "NONE"
