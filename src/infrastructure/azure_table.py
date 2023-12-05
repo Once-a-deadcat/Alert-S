@@ -24,6 +24,13 @@ class AzureTable:
         filter = f"PartitionKey eq 'tasks-{user_id}' and ServerId eq '{server_id}'"
         entities = list(table_client.query_entities(query_filter=filter))
         return entities
+    
+    def get_task(self, user_id, server_id, task_id):
+        table_client = self.table_service_client.get_table_client(self.table_name)
+        entity = table_client.get_entity(
+            partition_key=f"tasks-{user_id}", row_key=f"{task_id}-{server_id}"
+        )
+        return entity
 
     def create_task(self, task):
         table_client = self.table_service_client.get_table_client(self.table_name)
@@ -38,17 +45,22 @@ class AzureTable:
             "TaskColor": task.task_color,
         }
         table_client.upsert_entity(entity)
+        return entity
 
-    def update_task(self, task):
+    def update_task(self, user_id, server_id, task_id, task_status):
         table_client = self.table_service_client.get_table_client(self.table_name)
+        taskEntity = self.get_task(user_id, server_id, task_id)
+        taskEntity["TaskStatus"] = task_status
+        table_client.update_entity(taskEntity, mode=UpdateMode.REPLACE)
+        return taskEntity
+
+    def delete_task(self, user_id, server_id, task_id):
+        table_client = self.table_service_client.get_table_client(self.table_name)
+        # 削除するエンティティを取得する
         entity = table_client.get_entity(
-            partition_key=f"tasks-{task.user_id}", row_key=f"{task.task_id}-{task.server_id}"
+            partition_key=f"tasks-{user_id}", row_key=f"{task_id}-{server_id}"
         )
-        entity["TaskStatus"] = task.task_status
-        table_client.update_entity(entity, mode=UpdateMode.REPLACE)
-
-    def delete_task(self, task):
-        table_client = self.table_service_client.get_table_client(self.table_name)
         table_client.delete_entity(
-            partition_key=f"tasks-{task.user_id}", row_key=f"{task.task_id}-{task.server_id}"
+            partition_key=f"tasks-{user_id}", row_key=f"{task_id}-{server_id}"
         )
+        return entity

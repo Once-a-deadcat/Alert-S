@@ -9,7 +9,7 @@ from use_cases.task_management import TaskManagement
 from domain.task import Task
 from infrastructure.azure_table import AzureTable
 from infrastructure.logger import AzureBlobHandler
-from adapters.switch_bot import set_light_color, get_device_list
+from infrastructure.switch_bot import set_light_color, get_device_list
 import logging
 import os
 

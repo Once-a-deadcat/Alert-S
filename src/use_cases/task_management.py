@@ -10,17 +10,27 @@ class TaskManagement:
         return self.azure_table.get_tasks(user_id, server_id)
 
     async def create_task(self, user_id, server_id, task_title, task_detail, task_status, task_color):
-        task = Task(user_id, server_id, task_title, task_detail, task_status, task_color)
-        self.azure_table.create_task(task)
+        tasks = self.azure_table.get_tasks(user_id, server_id)
+        task_id = len(tasks) + 1
+        task = Task(
+            user_id=user_id, 
+            server_id=server_id, 
+            task_id=task_id, 
+            task_title=task_title, 
+            task_detail=task_detail, 
+            task_status=task_status, 
+            task_color=task_color
+        )
+        response = self.azure_table.create_task(task)
+        return response
 
     async def update_task(self, user_id, server_id, task_id, task_status):
-        task = self.azure_table.get_task(user_id, server_id, task_id)
-        task.task_status = task_status
-        self.azure_table.update_task(task)
+        response = self.azure_table.update_task(user_id, server_id, task_id, task_status)
+        return response
 
     async def delete_task(self, user_id, server_id, task_id):
-        task = self.azure_table.get_task(user_id, server_id, task_id)
-        self.azure_table.delete_task(task)
+        response = self.azure_table.delete_task(user_id, server_id, task_id)
+        return response
 
 
 # ------ old code ------
