@@ -9,8 +9,8 @@ class TaskManagement:
     async def get_tasks(self, user_id, server_id):
         return self.azure_table.get_tasks(user_id, server_id)
     
-    async def get_tasks_for_status(self, user_id):
-        return self.azure_table.get_tasks_for_status(user_id)
+    async def get_all_tasks(self, user_id):
+        return self.azure_table.get_all_tasks(user_id)
 
     async def create_task(self, user_id, server_id, task_title, task_detail, task_status, task_color):
         tasks = self.azure_table.get_tasks(user_id, server_id)

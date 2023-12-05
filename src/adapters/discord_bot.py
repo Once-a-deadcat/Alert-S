@@ -81,7 +81,7 @@ async def update_color(user_id: int):
     if user_id != DISCORD_USER_ID:
         return
 
-    tasks = await bot.task_management.get_tasks_for_status(user_id=user_id)
+    tasks = await bot.task_management.get_all_tasks(user_id=user_id)
 
     # set default light_color
     light_color = "NONE"
@@ -241,10 +241,8 @@ async def get(interaction: discord.Interaction):
     bot.logger.info("/get command received")
 
     user_id = interaction.user.id
-    # server_id = interaction.guild.id  # Get the server ID
-    server_id = 0
 
-    tasks = await bot.task_management.get_tasks(user_id, server_id)
+    tasks = await bot.task_management.get_all_tasks(user_id)
 
     if len(tasks) == 0:
         await interaction.response.send_message("No tasks found.", ephemeral=False)
@@ -296,10 +294,8 @@ async def get(interaction: discord.Interaction):
     bot.logger.info("/get command received")
 
     user_id = interaction.user.id
-    # server_id = interaction.guild.id  # Get the server ID
-    server_id = 0
 
-    tasks = await bot.task_management.get_tasks(user_id, server_id)
+    tasks = await bot.task_management.get_all_tasks(user_id)
 
     if len(tasks) == 0:
         await interaction.response.send_message("No tasks found.", ephemeral=True)
@@ -330,7 +326,7 @@ async def get(interaction: discord.Interaction):
             for task in tasks_in_color:
                 if task["TaskStatus"].upper() == "COMPLETED":
                     markdown_text += f'- TaskId:  {task["TaskId"]}  /  Status:  {task["TaskStatus"]}\n'
-                    markdown_text += f'\tTitle:  {task["TaskTitle"]}\n'
+                    markdown_text += f'\tTitle: {task["TaskTitle"]}\n'
                     markdown_text += f'\tDetail: {task["TaskDetail"]}\n'
                     active_flag = True
 
@@ -500,7 +496,7 @@ async def create(
         created_task = await bot.task_management.create_task(
             user_id, server_id, task_title, task_detail, task_status, task_color
         )
-        await update_color(user_id)
+        await update_color(int(user_id))
         bot.logger.info(f"create command received")
         bot.logger.info(f"created task: {created_task}")
         markdown_text = f"### Color:  {created_task['TaskColor']}\n"
@@ -587,7 +583,7 @@ async def update(interaction: discord.Interaction, task_id: str, task_status: st
     if created_task is None:
         await interaction.followup.send("Task not found.", ephemeral=True)
         return
-    color = await update_color(user_id)
+    color = await update_color(int(user_id))
     bot.logger.info(f"update_task command received")
     bot.logger.info(f"update_task task: {created_task}")
     markdown_text = f"### Color:  {created_task['TaskColor']}\n"
@@ -609,7 +605,7 @@ async def delete(interaction: discord.Interaction, task_id: str):
     if deleted_task is None:
         await interaction.followup.send("Task not found.", ephemeral=True)
         return
-    await update_color(user_id)
+    await update_color(int(user_id))
     bot.logger.info(f"delete_task command received")
     bot.logger.info(f"delete_task task: {deleted_task}")
     markdown_text = f"### Color:  {deleted_task['TaskColor']}\n"
