@@ -9,17 +9,14 @@ WORKDIR /app
 # pipenvのインストール
 RUN pip install pipenv
 
-# Pipfileをコピー
-COPY Pipfile Pipfile.lock ./
+# スクリプトとその他のファイルをコピー
+COPY . .
 
 # パッケージのインストール
 RUN pipenv install --system --deploy
 
-# スクリプトとその他のファイルをコピー
-COPY . .
-
 # PYTHONPATHにモジュールのパスを追加
-ENV PYTHONPATH="/app:${PYTHONPATH}"
+ENV PYTHONPATH="/app/src:${PYTHONPATH}"
 
 # スクリプトを実行
-CMD [ "python", "./discordBot/DiscordBot.py" ]
+CMD [ "python", "src/adapters/discord_bot.py" ]

@@ -1,57 +1,58 @@
+# adapters/discord_bot.py
 import asyncio
 import discord
-import os
-import json
-from switchBot.SwitchbotFunc import get_device_list, set_light_color
-from lib.logger import AzureBlobHandler
-import logging
-from tableClient.taskClient import get_tasks, create_tasks, update_tasks, delete_tasks
-from tableClient.stateClient import get_state, create_state, update_state
-from discord import (
-    Guild,
-    app_commands,
-    Interaction,
-    SelectOption,
-    TextInput,
-    User,
-    Member,
-    Embed,
-)
+from discord import Guild, app_commands, Interaction
 from discord.ui import Select, Button, View, UserSelect
 from discord.ext import commands
 from typing import List
+from use_cases.task_management import TaskManagement
+from domain.task import Task
+from infrastructure.azure_table import AzureTable
+from infrastructure.logger import AzureBlobHandler
+from adapters.switch_bot import set_light_color, get_device_list
+import logging
+import os
 
 # Configure logger settings
 CONNECTION_STRING = os.environ["CONNECTION_STRING"]
 CONTAINER_NAME = os.environ["CONTAINER_NAME"]
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-handler = AzureBlobHandler(
-    connection_string=CONNECTION_STRING,
-    container_name=CONTAINER_NAME,
-    blob_name_prefix="log",
-)
-handler.setFormatter(formatter)
-logger.addHandler(handler)
+class DiscordBot:
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
+        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        handler = AzureBlobHandler(
+            connection_string=CONNECTION_STRING,
+            container_name=CONTAINER_NAME,
+            blob_name_prefix="log",
+        )
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
 
-# インテントの生成
-intents = discord.Intents.default()
-intents.message_content = True
-intents.members = True
-intents = discord.Intents.all()
+        # インテントの生成
+        intents = discord.Intents.default()
+        intents.message_content = True
+        intents.members = True
+        intents = discord.Intents.all()
 
-# クライアントの生成
-client = discord.Client(intents=intents, command_prefix="/")
-tree = app_commands.CommandTree(client)
+        # クライアントの生成
+        self.client = discord.Client(intents=intents, command_prefix="/")
+        self.tree = app_commands.CommandTree(self.client)
+
+        # タスク管理のインスタンスを作成
+        self.task_management = TaskManagement()
+        
+
+# DiscordBotのインスタンスを作成
+bot = DiscordBot()
 
 
 # discordと接続した時に呼ばれる
-@client.event
+@bot.client.event
 async def on_ready():
-    print(f"We have logged in as {client.user}")
-    await tree.sync()  # スラッシュコマンドを同期
+    print(f"We have logged in as {bot.client.user}")
+    await bot.tree.sync()  # スラッシュコマンドを同期
 
 
 def format_device_list(device_data):
@@ -65,13 +66,13 @@ def format_device_list(device_data):
 
 
 # slash commandを受信した時に呼ばれる
-@tree.command(name="list", description="デバイスリストを返してくれます")
+@bot.tree.command(name="list", description="デバイスリストを返してくれます")
 async def list(interaction: discord.Interaction):
-    logger.info("/list command received")
+    bot.logger.info("/list command received")
 
     device_list = await get_device_list()
     formatted_list = format_device_list(device_list)
-    logger.info(f"list command received")
+    bot.logger.info(f"list command received")
     await interaction.response.send_message(formatted_list, ephemeral=False)
 
 
@@ -80,7 +81,7 @@ async def update_color(user_id: int):
     if user_id != DISCORD_USER_ID:
         return
 
-    tasks = await get_tasks(user_id=user_id, server_id=0)
+    tasks = await bot.task_management.get_tasks(user_id=user_id, server_id=0)
 
     # set default light_color
     light_color = "NONE"
@@ -109,14 +110,14 @@ async def update_color(user_id: int):
     return light_color
 
 
-@tree.command(name="get", description="Job一覧を返してくれます")
+@bot.tree.command(name="get", description="Job一覧を返してくれます")
 async def get(interaction: discord.Interaction):
-    logger.info("/get command received")
+    bot.logger.info("/get command received")
 
     user_id = interaction.user.id
     server_id = interaction.guild.id  # Get the server ID
 
-    tasks = await get_tasks(user_id, server_id)
+    tasks = await bot.task_management.get_tasks(user_id, server_id)
 
     if len(tasks) == 0:
         await interaction.response.send_message("No tasks found.", ephemeral=True)
@@ -181,14 +182,14 @@ async def member_options(
     return data
 
 
-@tree.command(name="done", description="完了したJob一覧を返してくれます")
+@bot.tree.command(name="done", description="完了したJob一覧を返してくれます")
 async def done(interaction: discord.Interaction):
-    logger.info("/done command received")
+    bot.logger.info("/done command received")
 
     user_id = interaction.user.id
     server_id = interaction.guild.id  # Get the server ID
 
-    tasks = await get_tasks(user_id, server_id)
+    tasks = await bot.task_management.get_tasks(user_id, server_id)
 
     if len(tasks) == 0:
         await interaction.response.send_message("No tasks found.", ephemeral=True)
@@ -235,15 +236,15 @@ async def done(interaction: discord.Interaction):
     await interaction.response.send_message(markdown_texts, ephemeral=True)
 
 
-@tree.command(name="get_all_tasks", description="全サーバーでのJob一覧を返してくれます")
+@bot.tree.command(name="get_all_tasks", description="全サーバーでのJob一覧を返してくれます")
 async def get(interaction: discord.Interaction):
-    logger.info("/get command received")
+    bot.logger.info("/get command received")
 
     user_id = interaction.user.id
     # server_id = interaction.guild.id  # Get the server ID
     server_id = 0
 
-    tasks = await get_tasks(user_id, server_id)
+    tasks = await bot.task_management.get_tasks(user_id, server_id)
 
     if len(tasks) == 0:
         await interaction.response.send_message("No tasks found.", ephemeral=False)
@@ -290,15 +291,15 @@ async def get(interaction: discord.Interaction):
     await interaction.response.send_message(markdown_texts, ephemeral=True)
 
 
-@tree.command(name="done_all_tasks", description="完了した全サーバーでのJob一覧を返してくれます")
+@bot.tree.command(name="done_all_tasks", description="完了した全サーバーでのJob一覧を返してくれます")
 async def get(interaction: discord.Interaction):
-    logger.info("/get command received")
+    bot.logger.info("/get command received")
 
     user_id = interaction.user.id
     # server_id = interaction.guild.id  # Get the server ID
     server_id = 0
 
-    tasks = await get_tasks(user_id, server_id)
+    tasks = await bot.task_management.get_tasks(user_id, server_id)
 
     if len(tasks) == 0:
         await interaction.response.send_message("No tasks found.", ephemeral=True)
@@ -345,12 +346,12 @@ async def get(interaction: discord.Interaction):
     await interaction.response.send_message(markdown_texts, ephemeral=True)
 
 
-@tree.command(name="get_member_tasks", description="Job一覧を返します(指定したユーザー)")
+@bot.tree.command(name="get_member_tasks", description="Job一覧を返します(指定したユーザー)")
 @app_commands.autocomplete(target_user_id=member_options)
 async def get_member_tasks(interaction: discord.Interaction, target_user_id: str):
     # target_user = client.get_user(int(target_user_id))
     server_id = interaction.guild.id  # Get the server ID
-    tasks = await get_tasks(
+    tasks = await bot.task_management.get_tasks(
         target_user_id, server_id
     )  # assuming get_tasks accepts a user_id
     # Markdown text generation
@@ -406,12 +407,12 @@ async def get_member_tasks(interaction: discord.Interaction, target_user_id: str
     await interaction.response.send_message(markdown_texts, ephemeral=False)
 
 
-@tree.command(name="done_member_tasks", description="完了したJob一覧を返します(指定したユーザー)")
+@bot.tree.command(name="done_member_tasks", description="完了したJob一覧を返します(指定したユーザー)")
 @app_commands.autocomplete(target_user_id=member_options)
 async def done_member_tasks(interaction: discord.Interaction, target_user_id: str):
     # target_user = client.get_user(int(target_user_id))
     server_id = interaction.guild.id  # Get the server ID
-    tasks = await get_tasks(
+    tasks = await bot.task_management.get_tasks(
         target_user_id, server_id
     )  # assuming get_tasks accepts a user_id
     # Markdown text generation
@@ -478,7 +479,7 @@ async def task_color_options(
     return data
 
 
-@tree.command(name="create", description="Jobを作成してくれます")
+@bot.tree.command(name="create", description="Jobを作成してくれます")
 @app_commands.autocomplete(
     task_color=task_color_options,
 )
@@ -496,13 +497,12 @@ async def create(
         user_id = interaction.user.id
         server_id = interaction.guild.id  # Get the server ID
         task_status = "NOT TOUCHED"
-        created_task = await create_tasks(
+        created_task = await bot.task_management.create_task(
             user_id, server_id, task_title, task_detail, task_status, task_color
         )
         await update_color(user_id)
-        # await create_state(user_id, created_task["TaskColor"])
-        logger.info(f"create command received")
-        logger.info(f"created task: {created_task}")
+        bot.logger.info(f"create command received")
+        bot.logger.info(f"created task: {created_task}")
         markdown_text = f"### Color:  {created_task['TaskColor']}\n"
         markdown_text += f'- TaskId:  {created_task["TaskId"]}  /  Status:  {created_task["TaskStatus"]}\n'
         markdown_text += f'\tTitle:  {created_task["TaskTitle"]}\n'
@@ -511,7 +511,7 @@ async def create(
         await interaction.followup.send(markdown_text, ephemeral=False)
 
 
-@tree.command(name="create_member_task", description="Jobを作成してくれます")
+@bot.tree.command(name="create_member_task", description="Jobを作成してくれます")
 @app_commands.autocomplete(
     task_color=task_color_options,
     target_user_id=member_options,
@@ -535,13 +535,12 @@ async def create_member_task(
         server_id = interaction.guild.id  # Get the server ID
 
         task_status = "NOT TOUCHED"
-        created_task = await create_tasks(
+        created_task = await bot.task_management.create_task(
             user_id, server_id, task_title, task_detail, task_status, task_color
         )
         await update_color(int(user_id))
-        # await create_state(user_id, created_task["TaskColor"])
-        logger.info(f"create command received")
-        logger.info(f"created task: {created_task}")
+        bot.logger.info(f"create command received")
+        bot.logger.info(f"created task: {created_task}")
         markdown_text = f"### Color:  {created_task['TaskColor']}\n"
         markdown_text += f'- TaskId:  {created_task["TaskId"]}  /  Status:  {created_task["TaskStatus"]}\n'
         markdown_text += f'\tTitle:  {created_task["TaskTitle"]}\n'
@@ -570,27 +569,27 @@ async def task_id_options(
     user_id = interaction.user.id
     server_id = interaction.guild.id  # Get the server ID
 
-    tasks = await get_tasks(user_id, server_id)
+    tasks = await bot.task_management.get_tasks(user_id, server_id)
     for task in tasks:
         choice = f'・TaskId:  {task["TaskId"]}  /  Title:  {task["TaskTitle"]}  /  Status:  {task["TaskStatus"]}  /  Color:  {task["TaskColor"]}\n'
         data.append(app_commands.Choice(name=choice, value=task["TaskId"]))
     return data
 
 
-@tree.command(name="update", description="Jobのステータスを更新してくれます")
+@bot.tree.command(name="update", description="Jobのステータスを更新してくれます")
 @app_commands.autocomplete(task_id=task_id_options, task_status=task_status_options)
 async def update(interaction: discord.Interaction, task_id: str, task_status: str):
     await interaction.response.defer(ephemeral=True)
     user_id = interaction.user.id
     server_id = interaction.guild.id  # Get the server ID
 
-    created_task = await update_tasks(user_id, server_id, task_id, task_status)
+    created_task = await bot.task_management.update_task(user_id, server_id, task_id, task_status)
     if created_task is None:
         await interaction.followup.send("Task not found.", ephemeral=True)
         return
     color = await update_color(user_id)
-    logger.info(f"update_tasks command received")
-    logger.info(f"update_tasks task: {created_task}")
+    bot.logger.info(f"update_task command received")
+    bot.logger.info(f"update_task task: {created_task}")
     markdown_text = f"### Color:  {created_task['TaskColor']}\n"
     markdown_text += f'- TaskId:  {created_task["TaskId"]}  /  Status:  {created_task["TaskStatus"]}\n'
     markdown_text += f'\tTitle:  {created_task["TaskTitle"]}\n'
@@ -599,20 +598,20 @@ async def update(interaction: discord.Interaction, task_id: str, task_status: st
     await interaction.followup.send(markdown_text, ephemeral=True)
 
 
-@tree.command(name="delete", description="Jobを削除してくれます")
+@bot.tree.command(name="delete", description="Jobを削除してくれます")
 @app_commands.autocomplete(task_id=task_id_options)
 async def delete(interaction: discord.Interaction, task_id: str):
     await interaction.response.defer(ephemeral=True)
     user_id = interaction.user.id
     server_id = interaction.guild.id  # Get the server ID
 
-    deleted_task = await delete_tasks(user_id, server_id, task_id)
+    deleted_task = await bot.task_management.delete_task(user_id, server_id, task_id)
     if deleted_task is None:
         await interaction.followup.send("Task not found.", ephemeral=True)
         return
     await update_color(user_id)
-    logger.info(f"delete_tasks command received")
-    logger.info(f"delete_tasks task: {deleted_task}")
+    bot.logger.info(f"delete_task command received")
+    bot.logger.info(f"delete_task task: {deleted_task}")
     markdown_text = f"### Color:  {deleted_task['TaskColor']}\n"
     markdown_text += f'- TaskId:  {deleted_task["TaskId"]}  /  Status:  {deleted_task["TaskStatus"]}\n'
     markdown_text += f'\tTitle:  {deleted_task["TaskTitle"]}\n'
@@ -630,14 +629,14 @@ async def task_id_options_by_userid(
     ]  # assuming the user_id is the first option
     server_id = interaction.guild.id  # Get the server ID
 
-    tasks = await get_tasks(user_id, server_id)
+    tasks = await bot.task_management.get_tasks(user_id, server_id)
     for task in tasks:
         choice = f'・TaskId:  {task["TaskId"]}  /  Title:  {task["TaskTitle"]}  /  Status:  {task["TaskStatus"]}  /  Color:  {task["TaskColor"]}\n'
         data.append(app_commands.Choice(name=choice, value=task["TaskId"]))
     return data
 
 
-@tree.command(name="delete_member_task", description="Jobを削除してくれます")
+@bot.tree.command(name="delete_member_task", description="Jobを削除してくれます")
 @app_commands.autocomplete(
     target_user_id=member_options,
     task_id=task_id_options_by_userid,
@@ -650,13 +649,13 @@ async def delete_member_task(
     server_id = interaction.guild.id  # Get the server ID
 
     # task select by user_id
-    deleted_task = await delete_tasks(user_id, server_id, task_id)
+    deleted_task = await bot.task_management.delete_task(user_id, server_id, task_id)
     if deleted_task is None:
         await interaction.followup.send("Task not found.", ephemeral=False)
         return
     await update_color(int(user_id))
-    logger.info(f"delete_tasks command received")
-    logger.info(f"delete_tasks task: {deleted_task}")
+    bot.logger.info(f"delete_task command received")
+    bot.logger.info(f"delete_task task: {deleted_task}")
     markdown_text = f"### Color:  {deleted_task['TaskColor']}\n"
     markdown_text += f'- TaskId:  {deleted_task["TaskId"]}  /  Status:  {deleted_task["TaskStatus"]}\n'
     markdown_text += f'\tTitle:  {deleted_task["TaskTitle"]}\n'
@@ -667,7 +666,7 @@ async def delete_member_task(
     await interaction.followup.send(markdown_text, ephemeral=False)
 
 
-@tree.command(name="light", description="指定の色に光らせます")
+@bot.tree.command(name="light", description="指定の色に光らせます")
 @app_commands.autocomplete(
     color=task_color_options,
 )
@@ -681,25 +680,23 @@ async def light(interaction: discord.Interaction, color: str):
     else:
         DISCORD_USER_ID = int(os.environ["DISCORD_USER_ID"])
         await interaction.response.defer()
-        logger.info("Setting light color to red...")
+        bot.logger.info("Setting light color to red...")
         user_id = interaction.user.id
         if user_id == DISCORD_USER_ID:
             await set_light_color(color)
-            logger.info("Light color set to red")
+            bot.logger.info("Light color set to red")
             await interaction.followup.send(f"{color} に光らせました!!")
         else:
             await interaction.followup.send(f"あなたはこのコマンドを実行できません")
 
 
 # メッセージを受信した時に呼ばれる
-@client.event
+@bot.client.event
 async def on_message(message):
     # 自分のメッセージを無効
-    if message.author == client.user:
-        await tree.sync()  # スラッシュコマンドを同期
+    if message.author == bot.client.user:
+        await bot.tree.sync()  # スラッシュコマンドを同期
         return
 
-
-# クライアントの実行
-token = os.environ["DISCORD_TOKEN"]
-client.run(token)
+# ボットを実行
+bot.client.run(os.getenv('DISCORD_TOKEN'))
